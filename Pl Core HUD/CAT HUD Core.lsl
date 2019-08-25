@@ -30,17 +30,17 @@ key id = "6a69e885-99a1-9f04-ee42-c2f160fb452c";
 integer GI_Conc_Chan = -55; // channel on which to chat to the balls
 
 integer GI_OChan_A = -22; // open channel for hud to overhead communication
-integer GI_Listen_Base = -100000;
-integer GI_Listen_Range = 100000;
+integer GI_Listen_Base = -100000; // set the minimum value
+integer GI_Listen_Range = 100000; // set the range of values
 
-
+// uuid to integer
 integer key2Chan ( key id, integer base, integer rng ) {
     integer sine = 1;
     if( base < 0 ) { sine = -1; }
     return (base+(sine*(((integer)("0x"+(string)id)&0x7FFFFFFF)%rng)));
 }
 
-
+// set a display prims texture offset
 setStatDisp( integer link, integer face, integer lev ) {
     integer x = lev % 3;
     integer y = ((lev-x)/3);
@@ -49,6 +49,15 @@ setStatDisp( integer link, integer face, integer lev ) {
 
 
 setup() {
+    map();
+    
+    GI_OChan_A = key2Chan( llGetOwner(), GI_Listen_Base, GI_Listen_Range );
+
+    updateStats(); // update the stats
+}
+
+// map prims and find display prims
+map() {
     integer i;
     integer num = llGetNumberOfPrims();
     list data =[];
@@ -59,12 +68,9 @@ setup() {
         }
     }
     GL_Stat_Disp = data; // preserve stat prims in global list
-    
-    GI_OChan_A = key2Chan( llGetOwner(), GI_Listen_Base, GI_Listen_Range );
-
-    updateStats(); // update the stats
 }
 
+// update stat display prims
 updateStats() {
     integer i;
     integer num = llGetListLength(GL_Stat_Disp);
@@ -89,7 +95,7 @@ updateStats() {
 }
 
 
-
+// find clicked basic button
 doButton( string bName ) {
     if( bName == ".B_ROL" ) {
         llSay(0, "secondlife:///app/agent/" + (string)llGetOwner() + "/displayname" + " Makes a Flat Roll");
@@ -111,6 +117,7 @@ doButton( string bName ) {
     }
 } 
 
+// find clicked incrament button
 doInc( string bName ) {
     if( bName == ".I_INC_HP" ) {
         llSay( GI_OChan_A, "INC HP 1" );
@@ -123,7 +130,7 @@ doInc( string bName ) {
     }
 }
 
-
+// do a dice roll
 doRoll( string tag ) {
     list tags = ["STR", "CHA", "DEX", "INT", "CON"];
     list tags_Title = ["Strength", "Charm", "Dexterity", "Intelligence", "Constitution"];
@@ -135,13 +142,20 @@ doRoll( string tag ) {
     }
 }
 
-
+// add a sign to an int and return it as a string
 string sign( integer val ) {
     if( val >= 0 ) {
         return "+"+ (string)val;
     }
     return (string)val;
 }
+
+
+
+
+
+
+
 
 
 default {
