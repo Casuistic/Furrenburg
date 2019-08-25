@@ -1,7 +1,7 @@
 /*
 // Cats makes the best programmers!  
 // 
-// Post Ball script made for linking with another
+// Pose Ball script made for linking with another
 //
 // 201908251950
 //

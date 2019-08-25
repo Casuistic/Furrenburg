@@ -1,4 +1,12 @@
-
+/*
+// Cats makes the best programmers!  
+// 
+// Core Script of the Character Editor Stand
+//
+// 201908251950
+//
+//
+*/
 
 // str,int,dex,con,cha
 list GL_Stats = [0,0,0,0,0];

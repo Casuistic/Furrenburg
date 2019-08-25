@@ -1,3 +1,14 @@
+/*
+// Cats makes the best programmers!  
+// 
+// FB HUD Rezzer and Target Selector for convo function
+//
+// 201908251950
+//
+//
+*/
+
+
 /*-------------DIALOG STUFF---------------*/
 float GD_Rng = 15;
 float GD_Ark = TWO_PI;

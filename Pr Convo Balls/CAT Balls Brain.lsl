@@ -1,3 +1,14 @@
+/*
+// Cats makes the best programmers!  
+// 
+// Brain Script to handle rezzing death and RLV commands of paired pose balls
+//
+// 201908251950
+//
+//
+*/
+
+
 
 integer GI_Conc_Chan = -55;
 

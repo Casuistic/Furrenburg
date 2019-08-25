@@ -1,3 +1,15 @@
+/*
+// Cats makes the best programmers!  
+// 
+// FB RP HUD Core Script
+//
+// 201908251950
+//
+//
+*/
+
+
+
 integer gListener; // Identity of the listener associated with the dialog, so we can clean up when not needed
 
 list GL_Stat_Mods = [
