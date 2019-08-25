@@ -1,3 +1,13 @@
+/*
+// Cats makes the best programmers!  
+// 
+// Post Ball script made for linking with another
+//
+// 201908251950
+//
+//
+*/
+
 
 
 string GS_Anim = "awkward";
@@ -10,15 +20,20 @@ rotation GR_SitRot = ZERO_ROTATION;
 
 vector GV_Color = <1,0,0>;
 
-integer GI_Link_Target = LINK_THIS;
+integer GI_Link_Target = LINK_THIS; // may or may not be this depending on if this is script 1 or 2
 integer GI_SitLink = -1;
 
 
-string GK_Stand = "base";
+string GS_Stand = "base";
 
 integer GI_SetPos = FALSE;
 
 integer GI_RLVChan = -1812221819;
+
+
+
+
+
 
 
 start( key id ) {
@@ -37,7 +52,7 @@ stop() {
         if( llGetInventoryType( GS_Anim ) == INVENTORY_ANIMATION ) {
             if( flag & PERMISSION_TRIGGER_ANIMATION ) {
                 llStopAnimation( GS_Anim );
-                llStopAnimation( GK_Stand );
+                llStopAnimation( GS_Stand );
             }
         }
     }
@@ -158,7 +173,7 @@ default {
                 llStopAnimation( "sit" );
                 llStartAnimation( "stand" );
                 llSleep(0.1);
-                llStartAnimation( GK_Stand );
+                llStartAnimation( GS_Stand );
                 llStartAnimation( GS_Anim );
                 llSleep( 0.1 );
                 llStopAnimation( "stand" );
