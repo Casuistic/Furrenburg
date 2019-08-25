@@ -97,7 +97,7 @@ doButton( string bName ) {
     } else if( bName == ".B_STOPCONV" ) {
         llSay( GI_Conc_Chan, "DIE" );
     }
-}
+} 
 
 doInc( string bName ) {
     if( bName == ".I_INC_HP" ) {
