@@ -20,32 +20,40 @@ integer GL_Listen = -1;
 /*----------------------------*/
 
 
-float GF_ZOff = 1.75;
+float GF_ZOff = 1.75; // z offsetr of rezzed chat balls
 
-string GS_Ball = "Convo Balls v0.333"; 
+string GS_Seek = "Convo Balls"; // used to find post balls if default named doesnt match
+string GS_Ball = "Convo Balls v0.45";  // default name od pose balls to look for. should be updated in not found
 
-integer GI_RLVChan = -1812221819;
+integer GI_RLVChan = -1812221819; // RLV channel
 
-key GK_Target = NULL_KEY;
+key GK_Target = NULL_KEY; // target of chat
+
+
 
 rezCmd( string cmd, key id ) {
     GK_Target = id;
     vector size = llGetAgentSize( llGetOwner() );
     float zAdj = GF_ZOff - size.z; 
-    llOwnerSay( (string)size );
-    llRezAtRoot( GS_Ball, llGetPos()+(<1,0,zAdj>*llGetRot()), ZERO_VECTOR, llGetRot() * llEuler2Rot( <0,0,180>*DEG_TO_RAD ), 1 );
+    //llOwnerSay( (string)size );
+    llRezAtRoot( 
+                GS_Ball, 
+                llGetPos()+(<1,0,zAdj>*llGetRot()), 
+                ZERO_VECTOR, 
+                llGetRot()*llEuler2Rot(<0,0,180>*DEG_TO_RAD), 
+                1 
+            );
 }
 
+/*  Find Pose Balls In Inventory  */
 string getBall() {
     list names = [];
-    string seek = "Convo Balls";
-    integer len = llStringLength( seek )-1;
-    
+    integer len = llStringLength( GS_Seek )-1;
     integer i;
     integer num = llGetInventoryNumber( INVENTORY_OBJECT );
     for( i=0;i<num;++i ) {
         string name = llGetInventoryName( INVENTORY_OBJECT, i );
-        if( llGetSubString( name, 0, len ) == seek ) {
+        if( llGetSubString( name, 0, len ) == GS_Seek ) {
             names += name;
         }
     }
@@ -53,12 +61,16 @@ string getBall() {
     return llList2String( names, 0 );
 }
 
+
+
+
+
 default {
-    state_entry() {
-        GS_Ball = getBall();
+    on_rez( integer peram ) {
+        llResetScript();
     }
     
-    on_rez( integer peram ) {
+    state_entry() {
         GS_Ball = getBall();
     }
     
@@ -73,7 +85,20 @@ default {
         GK_Target = NULL_KEY;
     }
 
-
+    listen( integer chan, string name, key id, string msg ) {
+        if( llGetOwnerKey(id) == llGetOwner() ) {
+            integer index = llListFindList( GL_Buttons, [msg] );
+            if( index != -1 ) {
+                //llOwnerSay( "Hit: "+ msg +" "+ llList2String( GL_Subjects, index ) );
+                rezCmd( msg, llList2Key( GL_Subjects, index ) );
+                llListenRemove( GL_Listen );
+            } else {
+                llOwnerSay( "Rejected: "+ msg );
+            }
+        }
+    }
+    
+    // found targets for chat
     sensor( integer num ) {
         vector pos = llGetPos();
         list data = [];
@@ -107,21 +132,9 @@ default {
         GL_Listen = llListen( 55, "", "", "" );
     }
     
-    listen( integer chan, string name, key id, string msg ) {
-        if( llGetOwnerKey(id) == llGetOwner() ) {
-            integer index = llListFindList( GL_Buttons, [msg] );
-            if( index != -1 ) {
-                //llOwnerSay( "Hit: "+ msg +" "+ llList2String( GL_Subjects, index ) );
-                rezCmd( msg, llList2Key( GL_Subjects, index ) );
-                llListenRemove( GL_Listen );
-            } else {
-                llOwnerSay( "Rejected: "+ msg );
-            }
-        }
-    }
-    
+    // no target found for scan for chat targets
     no_sensor() {
-        
+        llOwnerSay( "No Target Found" );
     }
 }
 
