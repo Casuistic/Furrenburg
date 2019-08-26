@@ -204,14 +204,14 @@ send( ) {
     debug( "Send" );
     key id = llAvatarOnSitTarget();
     if( id != NULL_KEY ) {
-        //llRegionSayTo( id, GI_Chan_B, "SetStats:"+ llDumpList2String(GL_Stats,",") );
         list data = [];//"";
         list tokens =[ "str","int","dex","con","cha" ];
         integer i;
         for( i=0; i<5; ++i ) {
             data += llList2String(tokens,i) +";"+ llList2String(GL_Stats,i);
         }
-        llWhisper( GI_Chan_B, "SetStats:"+ llDumpList2String(data,",") );
+        llRegionSayTo( id, GI_Chan_B, "SetStats:"+ llDumpList2String(GL_Stats,",") );
+        //llWhisper( GI_Chan_B, "SetStats:"+ llDumpList2String(GL_Stats,",") );
     } else {
         llWhisper( 0, "Agent Lost?" );
     }

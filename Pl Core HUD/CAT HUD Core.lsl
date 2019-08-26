@@ -13,18 +13,21 @@
 integer gListener; // Identity of the listener associated with the dialog, so we can clean up when not needed
 
 list GL_Stat_Mods = [
-    2, // str
-    8, // cha
-    4, // dex
-    6, // int
+    0, // str
+    0, // cha
+    0, // dex
+    0, // int
     0 // con
 ];
+
+integer GI_Data_Prim = -1;
 
 // store prims that display data
 list GL_Stat_Disp; // script sets this
 
 // 0-8 tiled texture;
-key id = "6a69e885-99a1-9f04-ee42-c2f160fb452c";
+key GK_Display_Text = "6a69e885-99a1-9f04-ee42-c2f160fb452c";
+key GK_Role_Icon = "6a69e885-99a1-9f04-ee42-c2f160fb452c";
 
 
 integer GI_Conc_Chan = -55; // channel on which to chat to the balls
@@ -54,17 +57,73 @@ integer key2Chan ( key id, integer base, integer rng ) {
 setStatDisp( integer link, integer face, integer lev ) {
     integer x = lev % 3;
     integer y = ((lev-x)/3);
-    llSetLinkPrimitiveParamsFast( link, [PRIM_TEXTURE, face, id, <.333,.333,0>,  <-.333+(0.333*x), -.333+(0.333*y), 0>, 0] );
+    llSetLinkPrimitiveParamsFast( link, [PRIM_TEXTURE, face, GK_Display_Text, <.333,.333,0>,  <-.333+(0.333*x), -.333+(0.333*y), 0>, 0] );
 }
 
 
 setup() {
     map();
+    load();
     GI_Chan_A = key2Chan( llGetOwner(), GI_Listen_A_Base, GI_Listen_A_Range );
     GI_Chan_B = key2Chan( llGetOwner(), GI_Listen_B_Base, GI_Listen_B_Range );
     llListenRemove( GI_Listen_B );
     GI_Listen_B = llListen( GI_Chan_B, "", "", "OpenChan" );
     updateStats(); // update the stats
+    save();
+}
+
+//STA;2,8,4,6,0,f49dbcd0-77e5-6700-9c31-2a057f00fcca;QpruAF6M8x0g6ZZ
+integer load() {
+    if( GI_Data_Prim != -1 ) {
+        list data = llParseString2List( llList2String( llGetLinkPrimitiveParams( GI_Data_Prim, [PRIM_DESC]), 0 ), [";"], [] );
+        if( llGetListLength( data ) == 3 && llList2String( data, 0 ) == "STA" ) {
+            if( verify( llGetOwner(), llList2String( data, 1 ), llList2String( data, 2 ) ) ) {
+                //llOwnerSay( "Loading: "+ llList2String( data, 1 ) );
+                integer i;
+                list tokens = llParseString2List( llList2String(data,1), [","], [] );
+                if( llGetListLength( tokens ) == 6 ) {
+                    list stats;
+                    for(i=0;i<5;++i) {
+                        stats += (integer)llList2String(tokens,i);
+                    }
+                    //llOwnerSay( "Old: "+ llList2String(data,2) );
+                    //llOwnerSay( "New: "+ encode( llGetOwner(), llList2String(data,1) ) );
+                    GL_Stat_Mods = stats;
+                    GK_Role_Icon = (key)llList2String(tokens,5);
+                    return TRUE;
+                }
+            } else {
+                llOwnerSay( "Load Failed: Data Not Valid" );
+            }
+        } else {
+            llOwnerSay( "Load Failed: Data Not Found" );
+        }
+    }
+    return FALSE;
+}
+
+//STA;2,8,4,6,0,f49dbcd0-77e5-6700-9c31-2a057f00fcca;QpruAF6M8x0g6ZZ
+save() {
+    if( GI_Data_Prim != -1 ) {
+        string text = llDumpList2String( GL_Stat_Mods,"," ) +","+ (string)GK_Role_Icon;
+        llSetLinkPrimitiveParamsFast( GI_Data_Prim, [PRIM_DESC, "STA;"+ text +";"+ encode( llGetOwner(), text )] );
+    }
+}
+
+string GS_Salt = "CATS_WIN!";
+string encode( key id, string text ) {
+    string text = llXorBase64( llStringToBase64( GS_Salt + text ), llIntegerToBase64( key2Chan(id,1000000,1000000) ) );
+    if( llStringLength( text ) < 15 ) {
+        text += llGetSubString( "qwertyuiopasdfg", 0, 14-llStringLength(text) );
+    } else if( llStringLength( text ) > 15 ) {
+        text = llGetSubString( text, 0, 14 );
+    }
+    return text;
+}
+
+integer verify( key id, string str1, string str2 ) {
+    return( encode( id, str1 ) == str2 );
+    //return TRUE;
 }
 
 
@@ -82,16 +141,6 @@ closeChan() {
 
 integer parseSafeCmd( integer chan, string name, key id, string msg ) {
     //string cmd = llToUpper( msg );
-    /*
-    if( cmd == "OPENCHAN" ) {
-        openChan( id );
-    } else {
-        if( cmd == "CLOSECHAN" ) {
-            closeChan();
-        }
-        llOwnerSay( "Safe Cmd: "+ cmd );
-    }
-    */
     //llOwnerSay( "Safe Cmd: "+ cmd );
     return FALSE;
 }
@@ -114,7 +163,7 @@ integer parseAltCmd( integer chan, string name, key id, string msg ) {
             }
         }
     }
-    llOwnerSay( "Unknown Alt Cmd: "+ cmd );
+    //llOwnerSay( "Unknown Alt Cmd: "+ cmd );
     return FALSE;
 }
 
@@ -122,14 +171,13 @@ integer setStats( list tokens ) {
     // example: "str;2,int;6,dex;4,con;0,cha;8";
     if( llGetListLength( tokens ) == 5 ) {
         tokens = llListSort( tokens, 1, FALSE );
-        llOwnerSay( llDumpList2String( tokens, " : " ) );
+        //llOwnerSay( llDumpList2String( tokens, " : " ) );
         list stats;
         integer i;
         list off = [0,4,2,1,3];
         // needed: str cha dex int con
         // got   : Str int dex con cha
         for(i=0;i<5;++i) {
-            //string token = llList2String(tokens, i );
             string token = llList2String(tokens,llList2Integer( off, i ));
             integer index = llSubStringIndex( token, ";" );
             if( index != -1 ) {
@@ -138,6 +186,7 @@ integer setStats( list tokens ) {
             stats += (integer)token;
         }
         GL_Stat_Mods = stats;
+        save();
         updateStats();
         return TRUE;
     }
@@ -150,9 +199,12 @@ map() {
     integer num = llGetNumberOfPrims();
     list data =[];
     for( i=1;i<=num;++i ) {
-        if( llToUpper(llGetLinkName(i)) == ".D_STAT" ) { // find all the stat display prims
+        string cmd = llToUpper(llGetLinkName(i));
+        if( cmd == ".D_STAT" ) { // find all the stat display prims
             data += i; // log stat display prims
             setStatDisp( i, 1, 0 ); // set zro value
+        } else if( cmd == ".DATA_01" ) {
+            GI_Data_Prim = i;
         }
     }
     GL_Stat_Disp = data; // preserve stat prims in global list
@@ -194,26 +246,26 @@ doButton( string bName ) {
     } else if( bName == ".B_RUN" ){
         llSay( 0, llKey2Name( llGetOwner() ) +" is Being A Coward!" );
     } else if( bName == ".B_QST" ) {
-        llSay( GI_Chan_A, "SAI QST" );
+        llRegionSayTo( llGetOwner(), GI_Chan_A, "SAI QST" );
     } else if( bName == ".B_HLP" ) {
-        llSay( GI_Chan_A, "SAI HLP" );
+        llRegionSayTo( llGetOwner(), GI_Chan_A, "SAI HLP" );
     } else if( bName == ".B_STARTCONV") {
         llMessageLinked( LINK_THIS, 1, "", "REZZER" );
     } else if( bName == ".B_STOPCONV" ) {
-        llSay( GI_Conc_Chan, "DIE" );
+        llWhisper( GI_Conc_Chan, "DIE" );
     }
 } 
 
 // find clicked incrament button
 doInc( string bName ) {
     if( bName == ".I_INC_HP" ) {
-        llSay( GI_Chan_A, "INC HP 1" );
+        llRegionSayTo( llGetOwner(), GI_Chan_A, "INC HP 1" );
     } else if( bName == ".I_DEC_HP" ){
-        llSay( GI_Chan_A, "INC HP -1" );
+        llRegionSayTo( llGetOwner(), GI_Chan_A, "INC HP -1" );
     } else if( bName == ".I_INC_WL" ){
-        llSay( GI_Chan_A, "INC WL 1" );
+        llRegionSayTo( llGetOwner(), GI_Chan_A, "INC WL 1" );
     } else if( bName == ".I_DEC_WL" ){
-        llSay( GI_Chan_A, "INC WL -1" );
+        llRegionSayTo( llGetOwner(), GI_Chan_A, "INC WL -1" );
     }
 }
 
@@ -254,6 +306,7 @@ default {
         if( id != NULL_KEY ) {
             llWhisper( 0, "Initializing" );
             setup();
+            llOwnerSay( "Ready... I Hope!" );
         }
     }
     
@@ -276,10 +329,10 @@ default {
     }
     
     listen( integer chan, string name, key id, string msg ) {
-        llOwnerSay( "Got: ["+ name +"] "+ msg );
-        if( llGetOwnerKey( id ) == llGetOwner() && parseSafeCmd( chan, name, id, msg ) ) {
-            return;
-        }
+        //llOwnerSay( "Got: ["+ name +"] "+ msg );
+        //if( llGetOwnerKey( id ) == llGetOwner() && parseSafeCmd( chan, name, id, msg ) ) {
+            //return;
+        //}
         parseAltCmd( chan, name, id, msg );
     }
     
