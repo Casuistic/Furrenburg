@@ -33,6 +33,12 @@ integer GI_OChan_A = -22; // open channel for hud to overhead communication
 integer GI_Listen_Base = -100000; // set the minimum value
 integer GI_Listen_Range = 100000; // set the range of values
 
+integer GI_Listen_B = -1;
+integer GI_Listen_B2 = -1;
+integer GI_Chan_B = -11; // open channel for hud to overhead communication
+integer GI_Listen_B_Base = -300000; // set the minimum value
+integer GI_Listen_B_Range = 100000; // set the range of values
+
 // uuid to integer
 integer key2Chan ( key id, integer base, integer rng ) {
     integer sine = 1;
@@ -50,10 +56,32 @@ setStatDisp( integer link, integer face, integer lev ) {
 
 setup() {
     map();
-    
     GI_OChan_A = key2Chan( llGetOwner(), GI_Listen_Base, GI_Listen_Range );
-
+    GI_Chan_B = key2Chan( llGetOwner(), GI_Listen_B_Base, GI_Listen_B_Range );
+    llListenRemove( GI_Listen_B );
+    GI_Listen_B = llListen( GI_Chan_B, "", "", "OpenChan" );
     updateStats(); // update the stats
+}
+
+
+openChan() {
+    llListenRemove( GI_Listen_B2 );
+    GI_Listen_B2 = llListen( GI_Chan_B, "", "", "" );
+    llSetTimerEvent( 120 );
+}
+
+
+closeChan() {
+    llListenRemove( GI_Listen_B2 );
+}
+
+
+parseAltCmd( integer chan, string name, key id, string cmd ) {
+    if( cmd == "OpenChan" ) {
+        openChan();
+    } else {
+    
+    }
 }
 
 // map prims and find display prims
@@ -93,7 +121,6 @@ updateStats() {
         }
     }
 }
-
 
 // find clicked basic button
 doButton( string bName ) {
@@ -186,5 +213,17 @@ default {
                 }
             }
         }
+    }
+    
+    listen( integer chan, string name, key id, string msg ) {
+        llOwnerSay( name +": "+ msg );
+        if( llGetOwnerKey( id ) != llGetOwner() ) {
+            parseAltCmd( chan, name, id, msg );
+            return;
+        }
+    }
+    
+    timer() {
+        
     }
 }

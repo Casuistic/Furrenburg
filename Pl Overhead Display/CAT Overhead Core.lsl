@@ -20,7 +20,7 @@ integer GI_WL_Cur = 0; // current wanted level
 integer GI_HP_Max = 5; // max health level
 integer GI_WL_Max = 5; // max wanted level
 
-
+integer GI_Icon = -1; // role display icon
 
 integer GI_Token_Qst = -1;
 integer GI_Token_Hlp = -1;
@@ -31,7 +31,6 @@ integer GI_Token_Mis = -1;
 key GK_Alert_Sound = "8ce19ac4-2775-6ff5-2464-086ede57696e";
 
 
-
 integer GI_Listen_Base = -100000;
 integer GI_Listen_Range = 100000;
 integer key2Chan ( key id, integer base, integer rng ) {
@@ -40,10 +39,12 @@ integer key2Chan ( key id, integer base, integer rng ) {
     return (base+(sine*(((integer)("0x"+(string)id)&0x7FFFFFFF)%rng)));
 }
 
+
 prep() {
     string star = ".STAR";
     string heal = ".HEALTH";
     string token = ".TOKEN";
+    string icon = ".ROL";
 
     integer i;
     integer num = llGetNumberOfPrims();
@@ -58,6 +59,9 @@ prep() {
         } else if( name == star ) {
             str += ["B"+ llList2String(llGetLinkPrimitiveParams(i,[PRIM_DESC]),0), i]; 
             llSetLinkAlpha( i, 1, ALL_SIDES );
+        } else if( name == icon ) {
+            llSetLinkAlpha( i, 1, ALL_SIDES );
+            GI_Icon = i;
         } else if( name == token ) {
             string desc = llList2String(llGetLinkPrimitiveParams(i,[PRIM_DESC]),0);
             if( desc == "QST" ) {
@@ -101,34 +105,42 @@ setLev( list tokens, integer lev ) {
 integer GI_OChan_A = -55; // open channel for hud to overhead communication
 
 
+
+
 doHUDCommand( string cmd ) {
     //llOwnerSay( "Command Check: "+ cmd );
     string tag = llGetSubString( cmd, 0, 2 );
     if( tag == "INC" ) {
-        list data = llParseString2List( cmd, [" "], [] );
-        if( llGetListLength( data ) != 3 ) {
-            return;
-        }
-        integer val = (integer)llList2String( data, 2 );
-        if( llList2String( data, 1 ) == "WL" ) {
-            GI_WL_Cur += val;
-            if( GI_WL_Cur < 0 ) {
-                GI_WL_Cur = 0;
-            } else if( GI_WL_Cur > GI_WL_Max ) {
-                GI_WL_Cur = GI_WL_Max;
-            }
-            setLev( GL_Str, GI_WL_Cur );
-        } else if( llList2String( data, 1 ) == "HP" ) {
-            GI_HP_Cur += val;
-            if( GI_HP_Cur < 0 ) {
-                GI_HP_Cur = 0;
-            } else if( GI_HP_Cur > GI_HP_Max ) {
-                GI_HP_Cur = GI_HP_Max;
-            }
-            setLev( GL_Bar, GI_HP_Cur );
-        }
+        parseIncrament( cmd );
     } else if( tag == "SAI" ) {
         parseIcons( cmd );
+    } else if( tag == "ROL" ) {
+        parseRole( cmd );
+    }
+}
+
+parseIncrament( string cmd ) {
+    list data = llParseString2List( cmd, [" "], [] );
+    if( llGetListLength( data ) != 3 ) {
+        return;
+    }
+    integer val = (integer)llList2String( data, 2 );
+    if( llList2String( data, 1 ) == "WL" ) {
+        GI_WL_Cur += val;
+        if( GI_WL_Cur < 0 ) {
+            GI_WL_Cur = 0;
+        } else if( GI_WL_Cur > GI_WL_Max ) {
+            GI_WL_Cur = GI_WL_Max;
+        }
+        setLev( GL_Str, GI_WL_Cur );
+    } else if( llList2String( data, 1 ) == "HP" ) {
+        GI_HP_Cur += val;
+        if( GI_HP_Cur < 0 ) {
+            GI_HP_Cur = 0;
+        } else if( GI_HP_Cur > GI_HP_Max ) {
+            GI_HP_Cur = GI_HP_Max;
+        }
+        setLev( GL_Bar, GI_HP_Cur );
     }
 }
 
@@ -154,6 +166,17 @@ parseIcons( string cmd ) {
     }
 }
 
+parseRole( string cmd ) {
+    list data = llParseString2List( cmd, [" "], [] );
+    if( llGetListLength( data ) != 2 ) {
+        return;
+    }
+    if( llList2String( data, 0 ) == "ROL" ) {
+        if( GI_Icon != -1 ) {
+            llSetLinkPrimitiveParamsFast( GI_Icon, [PRIM_TEXTURE,ALL_SIDES, (key)llList2String( data, 1 ), <1,1,0>, <0,0,0>, 0 ] );
+        }
+    }
+}
 
 integer last = -1;
 token( list items ) {
@@ -215,6 +238,7 @@ default {
             return; // reject non owner / hud commands
         }
         if( chan == GI_OChan_A ) {
+            llOwnerSay( msg );
             doHUDCommand( msg );
             return;
         }
