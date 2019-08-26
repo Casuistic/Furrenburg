@@ -9,6 +9,7 @@
 */
 
 
+integer GI_N_Relay = 8200;
 
 integer GI_RLVChan = -1812221819;
 
@@ -28,6 +29,11 @@ list GL_Resturations = [];
 
 string GS_Safeword = "RED";
 integer GI_Safeworded;
+
+
+integer GI_Enabled = TRUE;
+
+
 
 
 integer setDebug() {
@@ -62,7 +68,7 @@ relay( key id, string cmd ) {
     }
 }
 
-
+// this isnt needed yet, but it might be soon....
 integer trapValid( key id, string cmd ) {
     if( llGetOwnerKey( id ) == llGetOwner() ) {
         return TRUE;
@@ -262,6 +268,19 @@ doSafeword() {
     GL_Resturations = [];
     GI_Safeworded = TRUE;
     llOwnerSay( "Safeword Applied" );
+    setActive( -1 );
+    debug( "SAFEWORD USED" );
+}
+
+
+setActive( integer lev ) {
+    if( lev == -1 ) {
+        llSetLinkColor( LINK_THIS, <1,0,0>, 1 );
+    } else if( lev == 0 ) {
+        llSetLinkColor( LINK_THIS, <1,1,0>, 1 );
+    } else if( lev == 1 ) {
+        llSetLinkColor( LINK_THIS, <0,1,0>, 1 );
+    } 
 }
 
 
@@ -273,7 +292,10 @@ default {
             GI_Safeworded = FALSE;
             llOwnerSay( "Safeword Recover" );
         }
+        setActive( 1 );
         llListen( 0, "", "", GS_Safeword );
+        llListen( 0, "", "", llToUpper( GS_Safeword ) );
+        llListen( 0, "", "", llToLower( GS_Safeword ) );
     }
     
     link_message( integer src, integer num, string msg, key id ) {
@@ -297,6 +319,12 @@ default {
         }
         if( chan == GI_RLVChan ) {
             parseCommand( id, msg );
+        }
+    }
+    
+    touch_start( integer num ) {
+        if( llDetectedKey(0) == llGetOwner() ) {
+            GI_Enabled = FALSE;
         }
     }
 

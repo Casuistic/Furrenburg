@@ -163,6 +163,13 @@ default {
         setup();
     }
     
+    attach( key id ) {
+        if( id != NULL_KEY ) {
+            llWhisper( 0, "Initializing" );
+            setup();
+        }
+    }
+    
     touch_start( integer num ) {
         integer i;
         for( i=0;i<num;++i ) {
