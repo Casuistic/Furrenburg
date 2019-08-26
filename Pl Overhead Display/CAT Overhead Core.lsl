@@ -4,7 +4,7 @@
 // Overhead Dosplay Script
 //
 // 201908251950
-//
+// 201908262051
 //
 */
 
@@ -31,8 +31,12 @@ integer GI_Token_Mis = -1;
 key GK_Alert_Sound = "8ce19ac4-2775-6ff5-2464-086ede57696e";
 
 
-integer GI_Listen_Base = -100000;
-integer GI_Listen_Range = 100000;
+integer GI_Chan_A = -55; // open channel for hud to overhead communication
+integer GI_Listen_A_Base = -100000;
+integer GI_Listen_A_Range = 100000;
+
+
+
 integer key2Chan ( key id, integer base, integer rng ) {
     integer sine = 1;
     if( base < 0 ) { sine = -1; }
@@ -99,13 +103,6 @@ setLev( list tokens, integer lev ) {
         }
     }
 }
-
-
-//string GS_Name_Of_Hud = "HUD_Comm";
-integer GI_OChan_A = -55; // open channel for hud to overhead communication
-
-
-
 
 doHUDCommand( string cmd ) {
     //llOwnerSay( "Command Check: "+ cmd );
@@ -201,6 +198,12 @@ token( list items ) {
 }
 
 
+openChan() {
+    GI_Chan_A = key2Chan( llGetOwner(), GI_Listen_Base, GI_Listen_Range );
+    llListenRemove( GI_Listen );
+    GI_Listen = llListen( GI_Chan_A, "", "", "" );
+}
+
 integer GI_Listen;
 default {
     attach( key id ) {
@@ -210,35 +213,17 @@ default {
     }
     
     state_entry() {
-        GI_OChan_A = key2Chan( llGetOwner(), GI_Listen_Base, GI_Listen_Range );
-        llListen( GI_OChan_A, "", "", "" );
-        
         prep();
-
+        openComm();
         setLev( GL_Str, GI_WL_Cur );
         setLev( GL_Bar, GI_HP_Cur );
-    }
-    
-    touch( integer num ) {
-        llListenRemove( GI_Listen );
-        GI_Listen = llListen( 2, "", llGetOwner(), "" );
-        llSetTimerEvent( 30 );
-        //llOwnerSay( "Listen Open" );
-        llDialog( llGetOwner(), "Option", ["Stars", "Health"], 2 );
-    }
-    
-    timer() {
-        llSetTimerEvent(0);
-        llListenRemove( GI_Listen );
-        llOwnerSay( "Listen Closed" );
     }
     
     listen( integer chan, string name, key id, string msg ) {
         if( llGetOwnerKey( id ) != llGetOwner() ) {
             return; // reject non owner / hud commands
         }
-        if( chan == GI_OChan_A ) {
-            llOwnerSay( msg );
+        if( chan == GI_Chan_A ) {
             doHUDCommand( msg );
             return;
         }

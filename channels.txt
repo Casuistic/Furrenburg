@@ -1,0 +1,22 @@
+
+
+HUD TO OVERHEAD CHANNEL
+integer GI_Chan_A = -22;
+integer GI_Listen_Base = -100000; // set the minimum value
+integer GI_Listen_Range = 100000; // set the range of values
+
+HUD TO STAND (NON-OWNER)
+integer GI_Chan_B = -22;
+integer GI_Listen_Base = -200000; // set the minimum value
+integer GI_Listen_Range = 100000; // set the range of values
+
+OPEN HUD CHANNEL
+integer GI_Chan_C = -22;
+integer GI_Listen_C_Base = -300000; // set the minimum value
+integer GI_Listen_C_Range = 100000; // set the range of values
+
+ACTIVE AGENT (NON OWNER) TO STAND
+integer CI_Chan_D = -22;
+integer GI_Listen_D_Base = -600000; // set the minimum value
+integer GI_Listen_D_Range = 100000; // set the range of values
+

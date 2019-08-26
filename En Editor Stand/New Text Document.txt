@@ -1,0 +1,45 @@
+[07:40] Sophist (casuistic): RESET
+[07:40] {FB} CC Bay: SETUP
+[07:40] {FB} CC Bay: Clear
+[07:40] {FB} CC Bay: Set Display
+[07:40] {FB} CC Bay: Set Display
+[07:40] {FB} CC Bay: Set Display
+[07:40] {FB} CC Bay: Set Display
+[07:40] {FB} CC Bay: Set Display
+[07:40] {FB} CC Bay: Set Display
+[07:40] {FB} CC Bay: Set Display
+[07:40] Sophist (casuistic): SIT
+[07:40] {FB} CC Bay: New Agent
+[07:40] {FB} CC Bay: Open Chan
+[07:40] {FB} CC Bay: Key2Chan
+[07:40] {FB} CC Bay: Key2Chan
+[07:40] {FB} CC Bay whispers: Channel Open
+[07:40] FB Overhead HUD V0.111: PING
+[07:40] {FB} CC Bay: Open Dialog
+[07:40] Sophist (casuistic): ENTER
+[07:41] FB Overhead HUD V0.111: 8,8,8,8,8
+[07:41] {FB} CC Bay: Update
+[07:41] {FB} CC Bay: Set Display
+[07:41] {FB} CC Bay: Set Display
+[07:41] {FB} CC Bay: Set Display
+[07:41] {FB} CC Bay: Set Display
+[07:41] {FB} CC Bay: Set Display
+[07:41] {FB} CC Bay whispers: Only One Stat may be at Maximum value: +8
+[07:41] {FB} CC Bay: Set Display
+[07:41] {FB} CC Bay: Set Display
+[07:41] {FB} CC Bay: Get Colour
+[07:41] {FB} CC Bay whispers: Not Enough Points
+[07:41] {FB} CC Bay: Send
+[07:41] FB Overhead HUD V0.111: SetStats:8,8,8,8,8
+[07:41] {FB} CC Bay: Send
+[07:41] FB Overhead HUD V0.111: SetStats:8,8,8,8,8
+[07:41] Sophist (casuistic): STAND
+[07:41] {FB} CC Bay: Agent Left
+[07:41] {FB} CC Bay: Clear
+[07:41] {FB} CC Bay: Set Display
+[07:41] {FB} CC Bay: Set Display
+[07:41] {FB} CC Bay: Set Display
+[07:41] {FB} CC Bay: Set Display
+[07:41] {FB} CC Bay: Set Display
+[07:41] {FB} CC Bay: Set Display
+[07:41] {FB} CC Bay: Set Display

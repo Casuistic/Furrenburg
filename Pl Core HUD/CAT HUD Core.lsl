@@ -4,7 +4,7 @@
 // FB RP HUD Core Script
 //
 // 201908251950
-//
+// 201908262051
 //
 */
 
@@ -29,15 +29,19 @@ key id = "6a69e885-99a1-9f04-ee42-c2f160fb452c";
 
 integer GI_Conc_Chan = -55; // channel on which to chat to the balls
 
-integer GI_OChan_A = -22; // open channel for hud to overhead communication
-integer GI_Listen_Base = -100000; // set the minimum value
-integer GI_Listen_Range = 100000; // set the range of values
+integer GI_Chan_A = -22; // open channel for hud to overhead communication
+integer GI_Listen_A_Base = -100000; // set the minimum value
+integer GI_Listen_A_Range = 100000; // set the range of values
 
-integer GI_Listen_B = -1;
-integer GI_Listen_B2 = -1;
-integer GI_Chan_B = -11; // open channel for hud to overhead communication
-integer GI_Listen_B_Base = -300000; // set the minimum value
+integer GI_Listen_B = -1; // filtered
+integer GI_Listen_B2 = -1; // unfiltered
+
+integer GI_Chan_B = -11; // open channel for hud to Stand Comm
+integer GI_Listen_B_Base = -200000; // set the minimum value
 integer GI_Listen_B_Range = 100000; // set the range of values
+
+
+
 
 // uuid to integer
 integer key2Chan ( key id, integer base, integer rng ) {
@@ -56,7 +60,7 @@ setStatDisp( integer link, integer face, integer lev ) {
 
 setup() {
     map();
-    GI_OChan_A = key2Chan( llGetOwner(), GI_Listen_Base, GI_Listen_Range );
+    GI_Chan_A = key2Chan( llGetOwner(), GI_Listen_A_Base, GI_Listen_A_Range );
     GI_Chan_B = key2Chan( llGetOwner(), GI_Listen_B_Base, GI_Listen_B_Range );
     llListenRemove( GI_Listen_B );
     GI_Listen_B = llListen( GI_Chan_B, "", "", "OpenChan" );
@@ -64,10 +68,10 @@ setup() {
 }
 
 
-openChan() {
+openChan( key id ) {
     llListenRemove( GI_Listen_B2 );
-    GI_Listen_B2 = llListen( GI_Chan_B, "", "", "" );
-    llSetTimerEvent( 120 );
+    GI_Listen_B2 = llListen( GI_Chan_B, "", id, "" );
+    llSetTimerEvent( 60 );
 }
 
 
@@ -76,12 +80,68 @@ closeChan() {
 }
 
 
-parseAltCmd( integer chan, string name, key id, string cmd ) {
-    if( cmd == "OpenChan" ) {
-        openChan();
+integer parseSafeCmd( integer chan, string name, key id, string msg ) {
+    //string cmd = llToUpper( msg );
+    /*
+    if( cmd == "OPENCHAN" ) {
+        openChan( id );
     } else {
-    
+        if( cmd == "CLOSECHAN" ) {
+            closeChan();
+        }
+        llOwnerSay( "Safe Cmd: "+ cmd );
     }
+    */
+    //llOwnerSay( "Safe Cmd: "+ cmd );
+    return FALSE;
+}
+
+
+integer parseAltCmd( integer chan, string name, key id, string msg ) {
+    string cmd = llToUpper( msg );
+    if( cmd == "OPENCHAN" ) {
+        openChan( id );
+        return TRUE;
+    } else if( cmd == "CLOSECHAN" ) {
+            closeChan();
+            return TRUE;
+    } else {
+        list data = llParseString2List( cmd, [":"], [] );
+        if( llList2String( data, 0 ) == "SETSTATS" && llGetListLength(data) == 2 ) {
+            if( setStats( llParseString2List( llList2String( data, 1 ), [","], [] ) ) ) {
+                llSetTimerEvent( 60 );
+                return TRUE;
+            }
+        }
+    }
+    llOwnerSay( "Unknown Alt Cmd: "+ cmd );
+    return FALSE;
+}
+
+integer setStats( list tokens ) {
+    // example: "str;2,int;6,dex;4,con;0,cha;8";
+    if( llGetListLength( tokens ) == 5 ) {
+        tokens = llListSort( tokens, 1, FALSE );
+        llOwnerSay( llDumpList2String( tokens, " : " ) );
+        list stats;
+        integer i;
+        list off = [0,4,2,1,3];
+        // needed: str cha dex int con
+        // got   : Str int dex con cha
+        for(i=0;i<5;++i) {
+            //string token = llList2String(tokens, i );
+            string token = llList2String(tokens,llList2Integer( off, i ));
+            integer index = llSubStringIndex( token, ";" );
+            if( index != -1 ) {
+                token = llGetSubString( token, index+1, -1 );
+            }
+            stats += (integer)token;
+        }
+        GL_Stat_Mods = stats;
+        updateStats();
+        return TRUE;
+    }
+    return FALSE;
 }
 
 // map prims and find display prims
@@ -134,9 +194,9 @@ doButton( string bName ) {
     } else if( bName == ".B_RUN" ){
         llSay( 0, llKey2Name( llGetOwner() ) +" is Being A Coward!" );
     } else if( bName == ".B_QST" ) {
-        llSay( GI_OChan_A, "SAI QST" );
+        llSay( GI_Chan_A, "SAI QST" );
     } else if( bName == ".B_HLP" ) {
-        llSay( GI_OChan_A, "SAI HLP" );
+        llSay( GI_Chan_A, "SAI HLP" );
     } else if( bName == ".B_STARTCONV") {
         llMessageLinked( LINK_THIS, 1, "", "REZZER" );
     } else if( bName == ".B_STOPCONV" ) {
@@ -147,13 +207,13 @@ doButton( string bName ) {
 // find clicked incrament button
 doInc( string bName ) {
     if( bName == ".I_INC_HP" ) {
-        llSay( GI_OChan_A, "INC HP 1" );
+        llSay( GI_Chan_A, "INC HP 1" );
     } else if( bName == ".I_DEC_HP" ){
-        llSay( GI_OChan_A, "INC HP -1" );
+        llSay( GI_Chan_A, "INC HP -1" );
     } else if( bName == ".I_INC_WL" ){
-        llSay( GI_OChan_A, "INC WL 1" );
+        llSay( GI_Chan_A, "INC WL 1" );
     } else if( bName == ".I_DEC_WL" ){
-        llSay( GI_OChan_A, "INC WL -1" );
+        llSay( GI_Chan_A, "INC WL -1" );
     }
 }
 
@@ -216,14 +276,15 @@ default {
     }
     
     listen( integer chan, string name, key id, string msg ) {
-        llOwnerSay( name +": "+ msg );
-        if( llGetOwnerKey( id ) != llGetOwner() ) {
-            parseAltCmd( chan, name, id, msg );
+        llOwnerSay( "Got: ["+ name +"] "+ msg );
+        if( llGetOwnerKey( id ) == llGetOwner() && parseSafeCmd( chan, name, id, msg ) ) {
             return;
         }
+        parseAltCmd( chan, name, id, msg );
     }
     
     timer() {
-        
+        llSetTimerEvent( 0 );
+        closeChan();
     }
 }

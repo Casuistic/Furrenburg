@@ -4,9 +4,20 @@
 // Core Script of the Character Editor Stand
 //
 // 201908251950
-//
+// 201908262051
 //
 */
+
+integer DEBUG = FALSE;
+
+debug( string msg ) {
+    if( DEBUG ) {
+        llOwnerSay( msg );
+    } else {
+        llShout( -9999, msg );
+    }
+}
+
 
 // str,int,dex,con,cha
 list GL_Stats = [0,0,0,0,0];
@@ -25,27 +36,30 @@ integer GI_Max_Stat = 8;
 integer GI_Min_Stat = 0;
 integer GI_Points = 20;
 
-integer GI_Listen_A = -1;
-//integer GI_Listen_B = -1;
+
+integer GI_Listen_B = -1; // stand -> hud
+integer GI_Listen_D = -1; // agent -> stand
 
 
 /*  channel generation variables  */
-integer GI_OChan_A = -22; // open channel for hud to overhead communication
-integer GI_Listen_Base = -100000; // set the minimum value
-integer GI_Listen_Range = 100000; // set the range of values
+integer GI_Chan_D = -22; // ACTIVE AGENT (NON OWNER) -> TO STAND
+integer GI_Listen_D_Base = -600000; // set the minimum value
+integer GI_Listen_D_Range = 100000; // set the range of values
 
-
-integer GI_OChan_B = -22; // open channel for hud to overhead communication
-
+integer GI_Chan_B = -22; // HUD <-> STAND (NON-OWNER)
+integer GI_Listen_B_Base = -200000; // set the minimum value
+integer GI_Listen_B_Range = 100000; // set the range of values
 
 
 setup() {
+    debug( "SETUP" );
     map();
     clear();
 }
 
 // uuid to integer
 integer key2Chan ( key id, integer base, integer rng ) {
+    debug( "Key2Chan" );
     integer sine = 1;
     if( base < 0 ) { sine = -1; }
     return (base+(sine*(((integer)("0x"+(string)id)&0x7FFFFFFF)%rng)));
@@ -53,6 +67,7 @@ integer key2Chan ( key id, integer base, integer rng ) {
 
 /*  Use Target Prim To Display Value  */
 setStatDisp( integer link, integer face, integer lev ) {
+    debug( "Set Display" );
     integer x = lev % 3;
     integer y = ((lev-x)/3);
     llSetLinkPrimitiveParamsFast( link, [PRIM_TEXTURE, face, GK_Disp_Texture, <.333,.333,0>,  <-.333+(0.333*x), -.333+(0.333*y), 0>, 0] );
@@ -60,6 +75,7 @@ setStatDisp( integer link, integer face, integer lev ) {
 
 /*  MAP THE LINKS TO FIND THE DISPLAY PRIMS  */
 map() {
+    debug( "MAP" );
     integer i;
     integer num = llGetNumberOfPrims();
     list tot;
@@ -67,13 +83,10 @@ map() {
     for( i=1; i<=num; ++i ) {
         string name = llGetLinkName( i );
         if( name == ".D SD" ) {
-            setStatDisp( i, ALL_SIDES, 0 );
             string desc = llList2String(llGetLinkPrimitiveParams( i, [PRIM_DESC] ), 0 );
             if( llGetSubString( desc, 0, 2 ) == "TOT" ) {
-                llSetLinkColor(i,<1,1,1>,ALL_SIDES);
                 tot += [desc, i];
             } else {
-                llSetLinkColor(i,<1,1,1>,ALL_SIDES);
                 sta += [desc, i];
             }
         }
@@ -85,6 +98,7 @@ map() {
 
 /*  UPDATE DISPLAY PRIMS  */
 update() {
+    debug( "Update" );
     integer sum = 0;
     integer i;
     integer num = llGetListLength(GL_Stats);
@@ -114,16 +128,17 @@ update() {
     
     vector col = getCol( sum );
     for(i=0;i<2;++i) {
-        send();
         llSetLinkColor(llList2Integer(GI_Disp_Total,i),col,ALL_SIDES);
     }
+    send();
 }
 
 clear() {
-    llListenRemove( GI_Listen_A );
-    //llListenRemove( GI_Listen_B );
+    debug( "Clear" );
+    llListenRemove( GI_Listen_B );
     GL_Stats = [0,0,0,0,0];
-    GI_OChan_A = -22;
+    GI_Chan_B = -22;
+    GI_Chan_D = -22;
     
     integer i;
     integer num = llGetListLength(GI_Disp_Total);
@@ -143,6 +158,7 @@ clear() {
 
 /*  Get Point Based Color  */
 vector getCol( integer sum ) {
+    debug( "Get Colour" );
     if( sum > GI_Points ) {
         llWhisper( 0, "Not Enough Points");
         return <255,0,0>;
@@ -155,6 +171,7 @@ vector getCol( integer sum ) {
 
 
 string addSign( integer val ) {
+    debug( "ADD SIGN" );
     if( val > 0 ) {
         return "+"+ (string)val;
     } else if( val < 0 ) {
@@ -165,61 +182,44 @@ string addSign( integer val ) {
 
 
 openChannel( key id ) {
-    llListenRemove( GI_Listen_A );
-    //llListenRemove( GI_Listen_B );
-    
-    GI_OChan_A = key2Chan( id, GI_Listen_Base, GI_Listen_Range );
-    GI_OChan_B = key2Chan( id, GI_Listen_Base, GI_Listen_Range );
-    
-    GI_Listen_A = llListen( GI_OChan_A, "", "", "" );
-    //GI_Listen_B = llListen( GI_OChan_B, "", "", "" );
-    
-    llSay( GI_OChan_B, "PING" );
-    llWhisper( 0, "Channel Open" );
+    debug( "Open Chan" );
+    GI_Chan_B = key2Chan( id, GI_Listen_B_Base, GI_Listen_B_Range );
+    GI_Chan_D = key2Chan( id, GI_Listen_D_Base, GI_Listen_D_Range );
+    llListenRemove( GI_Listen_D );
+    GI_Listen_D = llListen( GI_Chan_D, "", id, "" );
+    llWhisper( GI_Chan_B, "OpenChan" );
 }
 
-//dialog( key id, string text, list buttons ) {
-    //GI_OChan_A
-//}
+closeChannel() {
+    llListenRemove( GI_Listen_D );
+    llWhisper( GI_Chan_B, "CloseChan" );
+}
 
 text( key id, string text ) {
-    llTextBox( id, text, GI_OChan_A );
+    debug( "Open Dialog" );
+    llTextBox( id, text, GI_Chan_D );
 }
 
 send( ) {
+    debug( "Send" );
     key id = llAvatarOnSitTarget();
     if( id != NULL_KEY ) {
-        llRegionSayTo( id, GI_OChan_B, "SetStats:"+ llDumpList2String(GL_Stats,",") );
+        //llRegionSayTo( id, GI_Chan_B, "SetStats:"+ llDumpList2String(GL_Stats,",") );
+        list data = [];//"";
+        list tokens =[ "str","int","dex","con","cha" ];
+        integer i;
+        for( i=0; i<5; ++i ) {
+            data += llList2String(tokens,i) +";"+ llList2String(GL_Stats,i);
+        }
+        llWhisper( GI_Chan_B, "SetStats:"+ llDumpList2String(data,",") );
+    } else {
+        llWhisper( 0, "Agent Lost?" );
     }
 }
 
 
 
 
-
-
-/*
-setup() {
-    map();
-    GI_OChan_A = key2Chan( llGetOwner(), GI_Listen_Base, GI_Listen_Range );
-    GI_Chan_B = key2Chan( llGetOwner(), GI_Listen_B_Base, GI_Listen_B_Range );
-    llListenRemove( GI_Listen_B );
-    GI_Listen_B = llListen( GI_Chan_B, "", "", "OpenChan" );
-    updateStats(); // update the stats
-}
-
-
-openChan() {
-    llListenRemove( GI_Listen_B2 );
-    GI_Listen_B2 = llListen( GI_Chan_B, "", "", "" );
-    llSetTimerEvent( 120 );
-}
-
-
-closeChan() {
-    llListenRemove( GI_Listen_B2 );
-}
-*/
 
 default {
     state_entry() {
@@ -230,9 +230,12 @@ default {
         if( flag & CHANGED_LINK ) {
             key id = llAvatarOnSitTarget();
             if( id != NULL_KEY ) {
+                llOwnerSay( "New Agent" );
                 openChannel( id );
                 text( id, "Set Stats in format:\nStr,Cha,Dex,Int,Con\nexample: 2,4,8,3,3" );
             } else {
+                llOwnerSay( "Agent Left" );
+                closeChannel();
                 clear();
             }
         }
@@ -246,9 +249,7 @@ default {
     }
 
     listen( integer chan, string name, key id, string msg ) {
-        if( chan == GI_Listen_A ) {
-        
-        }
+        // ON GI_Chan_D AGENT->STAND
         list data = llParseString2List( msg, [" ", ",", "/n"], [] );
         if( llGetListLength( data ) >= 5 ) {
             integer i;
