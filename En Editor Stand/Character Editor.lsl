@@ -5,6 +5,7 @@
 //
 // 201908251950
 // 201908262051
+// 201908270132
 //
 */
 
@@ -54,6 +55,9 @@ key GK_Sound_Start = "acafd9dc-d1f1-1074-f5a3-115031e3beb7";
 key GK_Sound_Set   = "eda25134-0196-4d49-d906-31cb86a5353b";
 key GK_Sound_Done  = "d019dc09-0e81-f744-2976-d87de0d254b6";
 key GK_Sound_Error = "f123cda7-f8ed-38b2-9c45-ad9a8507c0b4";
+
+key GK_Agent = NULL_KEY;
+
 
 setup() {
     debug( "SETUP" );
@@ -203,12 +207,14 @@ openChannel( key id ) {
     GI_Chan_D = key2Chan( id, GI_Listen_D_Base, GI_Listen_D_Range );
     llListenRemove( GI_Listen_D );
     GI_Listen_D = llListen( GI_Chan_D, "", id, "" );
-    llWhisper( GI_Chan_B, "OpenChan" );
+    llRegionSayTo( id, GI_Chan_B, "OpenChan" );
+    //llWhisper( GI_Chan_B, "OpenChan" );
 }
 
-closeChannel() {
+closeChannel( key id ) {
     llListenRemove( GI_Listen_D );
-    llWhisper( GI_Chan_B, "CloseChan" );
+    llRegionSayTo( id, GI_Chan_B, "OpenChan" );
+    //llWhisper( GI_Chan_B, "CloseChan" );
 }
 
 text( key id, string text ) {
@@ -248,12 +254,14 @@ default {
             if( id != NULL_KEY ) {
                 //llOwnerSay( "New Agent" );
                 llTriggerSound( GK_Sound_Start, 1 );
+                GK_Agent = id;
                 openChannel( id );
                 text( id, "Set Stats in format:\nStr,Cha,Dex,Int,Con\nexample: 2,4,8,3,3" );
-            } else {
+            } else if( GK_Agent != NULL_KEY ){
                 //llOwnerSay( "Agent Left" );
                 llTriggerSound( GK_Sound_Done, 1 );
-                closeChannel();
+                closeChannel( GK_Agent );
+                GK_Agent = NULL_KEY;
                 clear();
             }
         }
