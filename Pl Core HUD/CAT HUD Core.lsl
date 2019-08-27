@@ -69,7 +69,6 @@ setup() {
     llListenRemove( GI_Listen_B );
     GI_Listen_B = llListen( GI_Chan_B, "", "", "OpenChan" );
     updateStats(); // update the stats
-    save();
 }
 
 //STA;2,8,4,6,0,f49dbcd0-77e5-6700-9c31-2a057f00fcca;QpruAF6M8x0g6ZZ

@@ -50,6 +50,10 @@ integer GI_Chan_B = -22; // HUD <-> STAND (NON-OWNER)
 integer GI_Listen_B_Base = -200000; // set the minimum value
 integer GI_Listen_B_Range = 100000; // set the range of values
 
+key GK_Sound_Start = "acafd9dc-d1f1-1074-f5a3-115031e3beb7";
+key GK_Sound_Set   = "eda25134-0196-4d49-d906-31cb86a5353b";
+key GK_Sound_Done  = "d019dc09-0e81-f744-2976-d87de0d254b6";
+key GK_Sound_Error = "f123cda7-f8ed-38b2-9c45-ad9a8507c0b4";
 
 setup() {
     debug( "SETUP" );
@@ -103,6 +107,7 @@ update() {
     integer i;
     integer num = llGetListLength(GL_Stats);
     list set_max = [];
+    integer valid = TRUE;
     for(i=0;i<num;++i) {
         integer stat = llList2Integer( GL_Stats, i );
         sum += stat;
@@ -114,6 +119,7 @@ update() {
     }
     
     if( llGetListLength(set_max) > 1 ) {
+        valid = FALSE;
         llWhisper( 0, "Only One Stat may be at Maximum value: "+ addSign(GI_Max_Stat) );
         for(i=0;i<llGetListLength(set_max);++i) {
             llSetLinkColor(llList2Integer(set_max,i),<1,1,0>,ALL_SIDES);
@@ -122,15 +128,25 @@ update() {
 
     integer abs = llAbs( GI_Points-sum );
     integer over = (abs/10);
+    vector col = <1,1,1>;
+    if( sum != GI_Points ) {
+        valid = FALSE;
+        col = getCol( sum );
+    }
     
     setStatDisp( llList2Integer(GI_Disp_Total,0), ALL_SIDES, over );
     setStatDisp( llList2Integer(GI_Disp_Total,1), ALL_SIDES, (abs-(over*10)) );
-    
-    vector col = getCol( sum );
     for(i=0;i<2;++i) {
         llSetLinkColor(llList2Integer(GI_Disp_Total,i),col,ALL_SIDES);
     }
-    send();
+    
+    
+    if( !valid ) {
+        llTriggerSound( GK_Sound_Error, 1 );
+    } else {
+        llTriggerSound( GK_Sound_Set, 1 );
+        send();
+    }
 }
 
 clear() {
@@ -210,8 +226,8 @@ send( ) {
         for( i=0; i<5; ++i ) {
             data += llList2String(tokens,i) +";"+ llList2String(GL_Stats,i);
         }
-        llRegionSayTo( id, GI_Chan_B, "SetStats:"+ llDumpList2String(GL_Stats,",") );
-        //llWhisper( GI_Chan_B, "SetStats:"+ llDumpList2String(GL_Stats,",") );
+        llRegionSayTo( id, GI_Chan_B, "SetStats:"+ llDumpList2String(data,",") );
+        //llWhisper( GI_Chan_B, "SetStats:"+ llDumpList2String(data,",") );
     } else {
         llWhisper( 0, "Agent Lost?" );
     }
@@ -230,11 +246,13 @@ default {
         if( flag & CHANGED_LINK ) {
             key id = llAvatarOnSitTarget();
             if( id != NULL_KEY ) {
-                llOwnerSay( "New Agent" );
+                //llOwnerSay( "New Agent" );
+                llTriggerSound( GK_Sound_Start, 1 );
                 openChannel( id );
                 text( id, "Set Stats in format:\nStr,Cha,Dex,Int,Con\nexample: 2,4,8,3,3" );
             } else {
-                llOwnerSay( "Agent Left" );
+                //llOwnerSay( "Agent Left" );
+                llTriggerSound( GK_Sound_Done, 1 );
                 closeChannel();
                 clear();
             }
