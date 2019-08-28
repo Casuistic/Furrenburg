@@ -4,7 +4,7 @@
 // Basic Relay included in FB HUD
 //
 // 201908251950
-//
+// 201908272340
 //
 */
 
@@ -284,6 +284,21 @@ setActive( integer lev ) {
 }
 
 
+enable( integer lev ) {
+    GI_Enabled = lev;
+    if( GI_Enabled == -1 ) {
+        llSetColor( <1,0,0>, 1 );
+    } else if( GI_Enabled == 0 ) {
+        llSetColor( <1,1,0>, 1 );
+    } else if( GI_Enabled == 1 ) {
+        llSetColor( <0,1,0>, 1 );
+    } else {
+        llSetColor( <0,0,1>, 1 );
+    }
+}
+
+
+
 default {
     
     state_entry() {
@@ -296,6 +311,14 @@ default {
         llListen( 0, "", "", GS_Safeword );
         llListen( 0, "", "", llToUpper( GS_Safeword ) );
         llListen( 0, "", "", llToLower( GS_Safeword ) );
+    }
+    
+    attach( key id ) {
+        if( id != NULL_KEY ) {
+            enable( 1 );
+        } else {
+            
+        }
     }
     
     link_message( integer src, integer num, string msg, key id ) {
@@ -324,7 +347,11 @@ default {
     
     touch_start( integer num ) {
         if( llDetectedKey(0) == llGetOwner() ) {
-            GI_Enabled = FALSE;
+            if( GI_Enabled != 1 ) {
+                enable( 1 );
+            } else {
+                enable( 0 );
+            }
         }
     }
 

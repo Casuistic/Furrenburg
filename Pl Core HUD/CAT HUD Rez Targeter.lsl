@@ -10,7 +10,7 @@
 
 
 /*-------------DIALOG STUFF---------------*/
-float GD_Rng = 15;
+float GD_Rng = 5.0;
 float GD_Ark = TWO_PI;
 
 list GL_Buttons;
@@ -61,7 +61,18 @@ string getBall() {
     return llList2String( names, 0 );
 }
 
-
+string catGetName( key id ) {
+    string name = llGetDisplayName( id );
+    if( name != "" ) {
+        return name;
+    } else if( (name = llKey2Name( id )) != "" ) {
+        if( llGetSubString( name, -9, -1 ) == " Resident" ) {
+            return llGetSubString( name, 0, -10 );
+        }
+        return name;
+    }
+    return "Unknown";
+}
 
 
 
@@ -114,9 +125,9 @@ default {
         }
         list data2 = [];
         list data3 = [];
-        for(i=0;i<end;i+=3) {
+        for(i=0;i<end;i+=2) {
             key id = llList2Key( data, i+1 );
-            string test = "#1 "+ llGetDisplayName(id);
+            string test = "#1 "+ catGetName(id);
             if( llStringLength(test) > 24 ) {
                 test = llGetSubString( test,0,23 );
             }

@@ -70,6 +70,7 @@ setup() {
     llListenRemove( GI_Listen_B );
     GI_Listen_B = llListen( GI_Chan_B, "", "", "OpenChan" );
     updateStats(); // update the stats
+    //save();
 }
 
 //STA;2,8,4,6,0,f49dbcd0-77e5-6700-9c31-2a057f00fcca;QpruAF6M8x0g6ZZ
@@ -120,6 +121,7 @@ string encode( key id, string text ) {
     }
     return text;
 }
+
 
 integer verify( key id, string str1, string str2 ) {
     return( encode( id, str1 ) == str2 );
@@ -244,7 +246,7 @@ doButton( string bName ) {
     } else if( bName == ".B_DEF" ){
         llSay( 0, llKey2Name( llGetOwner() ) +" is Defending!" );
     } else if( bName == ".B_RUN" ){
-        llSay( 0, llKey2Name( llGetOwner() ) +" is Being A Coward!" );
+        llSay( 0, llKey2Name( llGetOwner() ) +" runs away like a little Bitch!" );
     } else if( bName == ".B_QST" ) {
         llRegionSayTo( llGetOwner(), GI_Chan_A, "SAI QST" );
     } else if( bName == ".B_HLP" ) {
