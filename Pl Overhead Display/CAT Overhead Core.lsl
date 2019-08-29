@@ -199,10 +199,14 @@ token( list items ) {
 }
 
 
-openChan() {
-    GI_Chan_A = key2Chan( llGetOwner(), GI_Listen_Base, GI_Listen_Range );
+openComm() {
+    GI_Chan_A = key2Chan( llGetOwner(), GI_Listen_A_Base, GI_Listen_A_Range );
     llListenRemove( GI_Listen );
     GI_Listen = llListen( GI_Chan_A, "", "", "" );
+}
+
+ping() {
+    llRegionSayTo( llGetOwner(), GI_Chan_A, "Ping" );
 }
 
 integer GI_Listen;
@@ -218,6 +222,7 @@ default {
         openComm();
         setLev( GL_Str, GI_WL_Cur );
         setLev( GL_Bar, GI_HP_Cur );
+        ping();
     }
     
     listen( integer chan, string name, key id, string msg ) {

@@ -28,11 +28,12 @@ list GL_Stat_Disp; // script sets this
 
 // 0-8 tiled texture;
 key GK_Display_Text = "6a69e885-99a1-9f04-ee42-c2f160fb452c";
-key GK_Role_Icon = "6a69e885-99a1-9f04-ee42-c2f160fb452c";
+key GK_Role_Icon = "85cd93de-8a05-7a05-b89f-33ecbab7b019";
 
 
 integer GI_Conc_Chan = -55; // channel on which to chat to the balls
 
+integer GI_Listen_A = -1;
 integer GI_Chan_A = -22; // open channel for hud to overhead communication
 integer GI_Listen_A_Base = -100000; // set the minimum value
 integer GI_Listen_A_Range = 100000; // set the range of values
@@ -63,14 +64,16 @@ setStatDisp( integer link, integer face, integer lev ) {
 
 
 setup() {
+    llListenRemove( GI_Listen_A );
+    llListenRemove( GI_Listen_B );
+    
     map();
     load();
     GI_Chan_A = key2Chan( llGetOwner(), GI_Listen_A_Base, GI_Listen_A_Range );
     GI_Chan_B = key2Chan( llGetOwner(), GI_Listen_B_Base, GI_Listen_B_Range );
-    llListenRemove( GI_Listen_B );
+    GI_Listen_A = llListen( GI_Chan_A, "", "", "Ping" );
     GI_Listen_B = llListen( GI_Chan_B, "", "", "OpenChan" );
     updateStats(); // update the stats
-    //save();
 }
 
 //STA;2,8,4,6,0,f49dbcd0-77e5-6700-9c31-2a057f00fcca;QpruAF6M8x0g6ZZ
@@ -111,6 +114,14 @@ save() {
     }
 }
 
+wipe() {
+    if( GI_Data_Prim != -1 ) {
+        list stats = [0,0,0,0,0];
+        string text = llDumpList2String( stats,"," ) +",85cd93de-8a05-7a05-b89f-33ecbab7b019";
+        llSetLinkPrimitiveParamsFast( GI_Data_Prim, [PRIM_DESC, "STA;"+ text +";"+ encode( llGetOwner(), text )] );
+    }
+}
+
 string GS_Salt = "CATS_WIN!";
 string encode( key id, string text ) {
     string text = llXorBase64( llStringToBase64( GS_Salt + text ), llIntegerToBase64( key2Chan(id,1000000,1000000) ) );
@@ -142,8 +153,11 @@ closeChan() {
 
 
 integer parseSafeCmd( integer chan, string name, key id, string msg ) {
-    //string cmd = llToUpper( msg );
-    //llOwnerSay( "Safe Cmd: "+ cmd );
+    string cmd = llToUpper( msg );
+    llOwnerSay( "Safe Cmd: "+ cmd );
+    if( cmd == "PING" ) {
+        updateOverhead();
+    }
     return FALSE;
 }
 
@@ -157,15 +171,21 @@ integer parseAltCmd( integer chan, string name, key id, string msg ) {
             closeChan();
             return TRUE;
     } else {
+        // md: ROL 3EE99ED2-DB9C-8DAA-5256-52768609DBAD
         list data = llParseString2List( cmd, [":"], [] );
         if( llList2String( data, 0 ) == "SETSTATS" && llGetListLength(data) == 2 ) {
             if( setStats( llParseString2List( llList2String( data, 1 ), [","], [] ) ) ) {
                 llSetTimerEvent( 60 );
                 return TRUE;
             }
+        } else if( llList2String( data, 0 ) == "SETROLE" ) {
+            if( setRole( llParseString2List( llList2String( data, 1 ), [","], [] ) ) ) {
+                llSetTimerEvent( 60 );
+                return TRUE;
+            }
         }
     }
-    //llOwnerSay( "Unknown Alt Cmd: "+ cmd );
+    llOwnerSay( "Unknown Alt Cmd: "+ cmd );
     return FALSE;
 }
 
@@ -193,6 +213,15 @@ integer setStats( list tokens ) {
         return TRUE;
     }
     return FALSE;
+}
+
+integer setRole( list tokens ) {
+    llOwnerSay( "Role Updated" );
+    GK_Role_Icon = (key)llList2String( tokens, 0 );
+    updateStats();
+    updateOverhead();
+    save();
+    return TRUE;
 }
 
 // map prims and find display prims
@@ -234,6 +263,10 @@ updateStats() {
             setStatDisp( link, 1, 0 );
         }
     }
+}
+
+updateOverhead() {
+    llRegionSayTo( llGetOwner(), GI_Chan_A, "ROL "+ (string)GK_Role_Icon );
 }
 
 // find clicked basic button
@@ -301,16 +334,22 @@ string sign( integer val ) {
 
 default {
     state_entry() {
+        llWhisper( 0, "Initializing" );
         setup();
+        updateOverhead();
+        llOwnerSay( "Ready!" );
     }
+    
     
     attach( key id ) {
         if( id != NULL_KEY ) {
             llWhisper( 0, "Initializing" );
             setup();
-            llOwnerSay( "Ready... I Hope!" );
+            updateOverhead();
+            llOwnerSay( "Ready!" );
         }
     }
+    
     
     touch_start( integer num ) {
         integer i;
@@ -330,16 +369,28 @@ default {
         }
     }
     
+    
     listen( integer chan, string name, key id, string msg ) {
-        //llOwnerSay( "Got: ["+ name +"] "+ msg );
-        //if( llGetOwnerKey( id ) == llGetOwner() && parseSafeCmd( chan, name, id, msg ) ) {
-            //return;
-        //}
+        llOwnerSay( "Got: ["+ name +"] "+ msg );
+        if( llGetOwnerKey( id ) == llGetOwner() && parseSafeCmd( chan, name, id, msg ) ) {
+            return;
+        }
         parseAltCmd( chan, name, id, msg );
     }
+    
     
     timer() {
         llSetTimerEvent( 0 );
         closeChan();
+    }
+    
+    
+    changed( integer flag ) {
+        if( flag & CHANGED_OWNER ) {
+            llWhisper( 0, "Owner Change Detected" );
+            llWhisper( 0, "Wiping Saved Data" );
+            wipe();
+            llResetScript();
+        }
     }
 }
