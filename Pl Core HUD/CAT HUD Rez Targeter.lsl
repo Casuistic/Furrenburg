@@ -118,7 +118,7 @@ default {
             list t = [llVecDist(pos,llDetectedPos(i)), llDetectedKey(i)];
             data += t;
         }
-        data = llListSort( data, 3, TRUE );
+        data = llListSort( data, 2, TRUE );
         integer end = llGetListLength( data );
         if( end > 12 ) {
             end = 12;
