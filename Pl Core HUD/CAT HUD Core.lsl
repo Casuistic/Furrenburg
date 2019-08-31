@@ -26,6 +26,8 @@ integer GI_Data_Prim = -1;
 // store prims that display data
 list GL_Stat_Disp; // script sets this
 
+integer GI_Inv_Disp = -1;
+
 // 0-8 tiled texture;
 key GK_Display_Text = "6a69e885-99a1-9f04-ee42-c2f160fb452c";
 key GK_Role_Icon = "85cd93de-8a05-7a05-b89f-33ecbab7b019";
@@ -62,18 +64,23 @@ setStatDisp( integer link, integer face, integer lev ) {
     llSetLinkPrimitiveParamsFast( link, [PRIM_TEXTURE, face, GK_Display_Text, <.333,.333,0>,  <-.333+(0.333*x), -.333+(0.333*y), 0>, 0] );
 }
 
-
+// SET UP POINT
+// CALLED ONCE ON SETUP OR OWNER CHANGE
+// NEEDS TO MAP THE LINKS, LOAD DATA, ENABLE LISTENS, THEN DISPLAY STATS
 setup() {
     llListenRemove( GI_Listen_A );
     llListenRemove( GI_Listen_B );
     
-    map();
-    load();
+    map(); // map linked set
+    load(); // load stored data
+    
+    openDisplay( FALSE ); // close display on start up
+    updateStats(); // update the stats
+    
     GI_Chan_A = key2Chan( llGetOwner(), GI_Listen_A_Base, GI_Listen_A_Range );
     GI_Chan_B = key2Chan( llGetOwner(), GI_Listen_B_Base, GI_Listen_B_Range );
     GI_Listen_A = llListen( GI_Chan_A, "", "", "Ping" );
     GI_Listen_B = llListen( GI_Chan_B, "", "", "OpenChan" );
-    updateStats(); // update the stats
 }
 
 //STA;2,8,4,6,0,f49dbcd0-77e5-6700-9c31-2a057f00fcca;QpruAF6M8x0g6ZZ
@@ -110,10 +117,13 @@ integer load() {
 save() {
     if( GI_Data_Prim != -1 ) {
         string text = llDumpList2String( GL_Stat_Mods,"," ) +","+ (string)GK_Role_Icon;
+        llSetLinkPrimitiveParamsFast( GI_Data_Prim, [PRIM_TEXTURE, ALL_SIDES, GK_Role_Icon, <1,1,0>, <0,0,0>, 0 ] );
         llSetLinkPrimitiveParamsFast( GI_Data_Prim, [PRIM_DESC, "STA;"+ text +";"+ encode( llGetOwner(), text )] );
     }
 }
 
+// Erase stored data
+// used on owner change
 wipe() {
     if( GI_Data_Prim != -1 ) {
         list stats = [0,0,0,0,0];
@@ -122,7 +132,8 @@ wipe() {
     }
 }
 
-string GS_Salt = "CATS_WIN!";
+//STA;0,0,0,0,0,6a69e885-99a1-9f04-ee42-c2f160fb452c;Q1eH1V9BmsghJv+
+string GS_Salt = "CATS_WIN!"; // salt for save data
 string encode( key id, string text ) {
     string text = llXorBase64( llStringToBase64( GS_Salt + text ), llIntegerToBase64( key2Chan(id,1000000,1000000) ) );
     if( llStringLength( text ) < 15 ) {
@@ -189,6 +200,7 @@ integer parseAltCmd( integer chan, string name, key id, string msg ) {
     return FALSE;
 }
 
+
 integer setStats( list tokens ) {
     // example: "str;2,int;6,dex;4,con;0,cha;8";
     if( llGetListLength( tokens ) == 5 ) {
@@ -215,6 +227,7 @@ integer setStats( list tokens ) {
     return FALSE;
 }
 
+
 integer setRole( list tokens ) {
     llOwnerSay( "Role Updated" );
     GK_Role_Icon = (key)llList2String( tokens, 0 );
@@ -236,6 +249,8 @@ map() {
             setStatDisp( i, 1, 0 ); // set zro value
         } else if( cmd == ".DATA_01" ) {
             GI_Data_Prim = i;
+        } else if( cmd == ".INV" ) {
+            GI_Inv_Disp = i;
         }
     }
     GL_Stat_Disp = data; // preserve stat prims in global list
@@ -284,6 +299,8 @@ doButton( string bName ) {
         llRegionSayTo( llGetOwner(), GI_Chan_A, "SAI QST" );
     } else if( bName == ".B_HLP" ) {
         llRegionSayTo( llGetOwner(), GI_Chan_A, "SAI HLP" );
+    } else if( bName == ".B_INV" ) {
+        openDisplay( -1 );
     } else if( bName == ".B_STARTCONV") {
         llMessageLinked( LINK_THIS, 1, "", "REZZER" );
     } else if( bName == ".B_STOPCONV" ) {
@@ -326,10 +343,53 @@ string sign( integer val ) {
 
 
 
+/*  INVENTORY STUFF  */
+integer GI_Out = FALSE;
+vector GV_Scale_In = <0.04305, 0.10931, 0.31523>;
+vector GV_Scale_Out = <0.04305, 0.47264, 0.31523>;
+vector GV_Loc_In = <-0.03540, -0.39216, 0.26000>;
+vector GV_Loc_Out = <-0.03540, -0.13480, 0.26000>;
+list GL_Textures = [
+    "36957213-c565-5a1d-4104-647571b73061",
+    "af8c40de-aa44-fb43-2aed-2a235b62632a",
+    "a2b79dc5-885c-1575-bb21-78e23b121b7b",
+    "21a3600f-67cd-2faf-ac8c-808a1521c979",
+    "73c536b4-5bc3-17e7-710d-4f06a027f649",
+    "86ed7b5c-7831-7138-a063-0e89393b7da3",
+    "8234981c-6a98-69fe-204d-cb007ec0bbbc"
+];
+list GL_Faces = [ 4, 1, 5, 2, 6, 3 ]; // faces of inventory hud, left -> right, top -> bottom
 
+// DEBUG Populate Inventory Panel
+generate() {
+    if( GI_Inv_Disp == -1 ) {
+        return;
+    }
+    integer i;
+    integer num = llGetListLength( GL_Faces );
+    integer len = llGetListLength( GL_Textures );
+    for( i=0; i<num; ++i ) {
+        integer ran = (integer)llFloor( llFrand( len ) );
+        llSetLinkPrimitiveParamsFast( GI_Inv_Disp, [PRIM_TEXTURE, llList2Integer( GL_Faces, i ), llList2Key( GL_Textures, ran ), <1,1,0>, <0,0,0>, PI/2] );
+    }
+}
 
+// Open/Close the display
+openDisplay( integer open ) {
+    if( GI_Inv_Disp == -1 ) {
+        return;
+    }
+    if( open == -1 ) {
+        open = (GI_Out = ~GI_Out);
+    }
+    if( open ) {
+        llSetLinkPrimitiveParamsFast( GI_Inv_Disp, [PRIM_POS_LOCAL, GV_Loc_Out, PRIM_SIZE, GV_Scale_Out] );
+    } else {
+        llSetLinkPrimitiveParamsFast( GI_Inv_Disp, [PRIM_POS_LOCAL, GV_Loc_In, PRIM_SIZE, GV_Scale_In] );
+    }
+}
 
-
+/*  END OF INVENTORY STUFF  */
 
 
 default {
@@ -338,6 +398,7 @@ default {
         setup();
         updateOverhead();
         llOwnerSay( "Ready!" );
+        generate();
     }
     
     

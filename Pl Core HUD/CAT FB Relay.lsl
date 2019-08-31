@@ -316,6 +316,7 @@ default {
     attach( key id ) {
         if( id != NULL_KEY ) {
             enable( 1 );
+            llOwnerSay( "Relay Safeword is: \""+GS_Safeword+"\"" );
         } else {
             
         }
