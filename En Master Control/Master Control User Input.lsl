@@ -1,4 +1,10 @@
-
+/*
+// Cats makes the best programmers!  
+// 
+// User Interaction Management script for Master Control Terminal
+//
+// 201908311750
+*/
 
 string GS_Anim = "Work";
 
@@ -105,8 +111,7 @@ default {
     }
 }
 
-
-
+// CONSOLE IN ACTIVE STATE
 state ready {
     on_rez( integer peram ) {
         state default;
@@ -199,8 +204,7 @@ state ready {
     }
 }
 
-
-
+// CONSOLE IN BLUE SCREEN STATE
 state error {
     on_rez( integer peram ) {
         state default;

@@ -1,3 +1,13 @@
+/*
+// Cats makes the best programmers!  
+// 
+// Manage The Screens and the preload prims of the Master Control Console
+//
+// 201908311750
+*/
+
+
+
 list GL_Screens = [ 
     "e4a3d33e-897d-84de-ddc8-e149186ce508", // comm
     "1377ee26-6938-c41a-99c4-74bbd2544917", // stattic
@@ -40,6 +50,7 @@ map() {
         string name = llGetLinkName( i );
         if( name == ".Screen" ) {
             GI_Screen = i;
+            startScreen( GI_Screen, 0, 8 );
         } else if( name == ".Preload" ) {
             GI_Preload = i;
         }
@@ -78,6 +89,7 @@ set( integer front, integer back ) {
     llSetLinkPrimitiveParamsFast( GI_Base, [PRIM_TEXTURE, 2, llList2Key( GL_Screens, back ), <.25,.25,0>, <.125,.125,0>, 0] );
 }
 
+// set the preload prim
 set2( list data ) {
     integer i;
     integer num = llGetListLength( data );
@@ -89,25 +101,22 @@ set2( list data ) {
     }
 }
 
-
+// set the side light animation
 setBeacons( vector col, float speed ) {
     integer side = 1;
     llSetLinkPrimitiveParamsFast( GI_Base, [PRIM_COLOR, side, col, 1] );
     llSetLinkTextureAnim( GI_Base, ANIM_ON | LOOP, side,  120,1,0,0, speed );
 }
 
-
+// kick off the screen and side lights
 startAnim() {
-    integer side = 0;
-    integer speed = 10;
-    llSetLinkTextureAnim( GI_Screen, ANIM_ON | LOOP, side,  4,4,0,0,   speed );
-    side = 1;
-    speed = 25;
-    llSetLinkTextureAnim( GI_Base, ANIM_ON | LOOP, side,  120,1,0,0, speed );
-    
-    llSetLinkTextureAnim( GI_Preload, LOOP, side,  120,1,0,0, speed );
+    set( 0, 3 );
 }
 
+
+startScreen( integer screen, integer side, float speed ) {
+    llSetLinkTextureAnim( screen, ANIM_ON | LOOP, side,  4,4,0,0,   speed );
+}
 
 
 
