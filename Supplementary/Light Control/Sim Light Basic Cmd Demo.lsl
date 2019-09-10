@@ -76,7 +76,11 @@ parseState( list data ) {
     if( nstate != GS_State ) {
         if( nstate == "Online" ) {
             llRegionSay( GV_Chan, llList2String( GL_Cmd, GI_On ));
+            llSleep( 1 );
+            llRegionSay( GV_Chan, llList2String( GL_Cmd, GI_On ));
         } else {
+            llRegionSay( GV_Chan, llList2String( GL_Cmd, 0 ));
+            llSleep( 1 );
             llRegionSay( GV_Chan, llList2String( GL_Cmd, 0 ));
         }
     }
