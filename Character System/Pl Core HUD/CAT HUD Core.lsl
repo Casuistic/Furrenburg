@@ -50,32 +50,6 @@ integer GI_Listen_B_Range = 100000; // set the range of values
 
 
 
-
-
-/*  INVENTORY STUFF  */
-integer GI_Out = FALSE;
-vector GV_Scale_In = <0.04305, 0.10931, 0.31523>;
-vector GV_Scale_Out = <0.04305, 0.47264, 0.31523>;
-vector GV_Loc_In = <-0.03540, -0.39216, 0.26000>;
-vector GV_Loc_Out = <-0.03540, -0.13480, 0.26000>;
-list GL_Textures = [
-    TEXTURE_TRANSPARENT,
-    "36957213-c565-5a1d-4104-647571b73061",
-    "af8c40de-aa44-fb43-2aed-2a235b62632a",
-    "a2b79dc5-885c-1575-bb21-78e23b121b7b",
-    "21a3600f-67cd-2faf-ac8c-808a1521c979",
-    "73c536b4-5bc3-17e7-710d-4f06a027f649",
-    "86ed7b5c-7831-7138-a063-0e89393b7da3",
-    "8234981c-6a98-69fe-204d-cb007ec0bbbc"
-];
-list GL_Faces = [ 4, 1, 5, 2, 6, 3 ]; // faces of inventory hud, left -> right, top -> bottom
-
-
-
-
-
-
-
 // uuid to integer
 integer key2Chan ( key id, integer base, integer rng ) {
     integer sine = 1;
@@ -361,20 +335,6 @@ doInc( string bName ) {
 
 doInv( integer link, integer face ) {
     llMessageLinked( LINK_SET, 5, "DI:"+ (string)link +":"+ (string)face, "INV_SYS" );
-    /*
-    if( face >= 1 && face <= 6 ) {
-        integer i;
-        vector col;
-        for( i=1; i<=6; ++i ) {
-            if( face == i ) {
-                col = <1,1,1>;
-            } else {
-                col = <0.5,0.25,0.25>;
-            }
-            llSetLinkPrimitiveParamsFast( link, [PRIM_COLOR, i, col, 1] );
-        }
-    }
-    */
 }
 
 
@@ -400,20 +360,10 @@ string sign( integer val ) {
 }
 
 
-
+integer GI_Out = FALSE;
 // Open/Close the display
 openDisplay( integer open ) {
-    if( GI_Inv_Disp == -1 ) {
-        return;
-    }
-    if( open == -1 ) {
-        open = (GI_Out = ~GI_Out);
-    }
-    if( open ) {
-        llSetLinkPrimitiveParamsFast( GI_Inv_Disp, [PRIM_POS_LOCAL, GV_Loc_Out, PRIM_SIZE, GV_Scale_Out] );
-    } else {
-        llSetLinkPrimitiveParamsFast( GI_Inv_Disp, [PRIM_POS_LOCAL, GV_Loc_In, PRIM_SIZE, GV_Scale_In] );
-    }
+    llMessageLinked( LINK_SET, 5, "DC:OPEN:"+ (string)open, "INV_SYS" );
 }
 
 /*  END OF INVENTORY STUFF  */
@@ -422,10 +372,10 @@ openDisplay( integer open ) {
 default {
     state_entry() {
         llWhisper( 0, "Initializing" );
+        llMessageLinked( LINK_SET, 5, "RESET", "CAT_RESET" );
         setup();
         updateOverhead();
-        llOwnerSay( "Ready!" );
-        generate();
+        llOwnerSay( "Core Ready!" );
     }
     
     
@@ -434,7 +384,7 @@ default {
             llWhisper( 0, "Initializing" );
             setup();
             updateOverhead();
-            llOwnerSay( "Ready!" );
+            llOwnerSay( "Core Ready!" );
         }
     }
     
