@@ -7,6 +7,7 @@
 // 201908262051
 // 201908270132
 // 201910232125
+//
 */
 
 
@@ -434,6 +435,17 @@ default {
             llWhisper( 0, "Owner Change Detected" );
             llWhisper( 0, "Wiping Saved Data" );
             wipe();
+            llResetScript();
+        } else if( flag & CHANGED_INVENTORY ) {
+            string me = llGetScriptName();
+            integer i;
+            integer num = llGetInventoryNumber( INVENTORY_SCRIPT );
+            for( i=0; i<num; ++i ) {
+                string name = llGetInventoryName( INVENTORY_SCRIPT, i );
+                if( name != me ) {
+                    llResetOtherScript( name );
+                }
+            }
             llResetScript();
         }
     }
