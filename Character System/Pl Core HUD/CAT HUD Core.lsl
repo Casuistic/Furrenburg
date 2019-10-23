@@ -50,6 +50,32 @@ integer GI_Listen_B_Range = 100000; // set the range of values
 
 
 
+
+
+/*  INVENTORY STUFF  */
+integer GI_Out = FALSE;
+vector GV_Scale_In = <0.04305, 0.10931, 0.31523>;
+vector GV_Scale_Out = <0.04305, 0.47264, 0.31523>;
+vector GV_Loc_In = <-0.03540, -0.39216, 0.26000>;
+vector GV_Loc_Out = <-0.03540, -0.13480, 0.26000>;
+list GL_Textures = [
+    TEXTURE_TRANSPARENT,
+    "36957213-c565-5a1d-4104-647571b73061",
+    "af8c40de-aa44-fb43-2aed-2a235b62632a",
+    "a2b79dc5-885c-1575-bb21-78e23b121b7b",
+    "21a3600f-67cd-2faf-ac8c-808a1521c979",
+    "73c536b4-5bc3-17e7-710d-4f06a027f649",
+    "86ed7b5c-7831-7138-a063-0e89393b7da3",
+    "8234981c-6a98-69fe-204d-cb007ec0bbbc"
+];
+list GL_Faces = [ 4, 1, 5, 2, 6, 3 ]; // faces of inventory hud, left -> right, top -> bottom
+
+
+
+
+
+
+
 // uuid to integer
 integer key2Chan ( key id, integer base, integer rng ) {
     integer sine = 1;
@@ -57,12 +83,14 @@ integer key2Chan ( key id, integer base, integer rng ) {
     return (base+(sine*(((integer)("0x"+(string)id)&0x7FFFFFFF)%rng)));
 }
 
+
 // set a display prims texture offset
 setStatDisp( integer link, integer face, integer lev ) {
     integer x = lev % 3;
     integer y = ((lev-x)/3);
     llSetLinkPrimitiveParamsFast( link, [PRIM_TEXTURE, face, GK_Display_Text, <.333,.333,0>,  <-.333+(0.333*x), -.333+(0.333*y), 0>, 0] );
 }
+
 
 // SET UP POINT
 // CALLED ONCE ON SETUP OR OWNER CHANGE
@@ -82,6 +110,7 @@ setup() {
     GI_Listen_A = llListen( GI_Chan_A, "", "", "Ping" );
     GI_Listen_B = llListen( GI_Chan_B, "", "", "OpenChan" );
 }
+
 
 //STA;2,8,4,6,0,f49dbcd0-77e5-6700-9c31-2a057f00fcca;QpruAF6M8x0g6ZZ
 integer load() {
@@ -113,6 +142,7 @@ integer load() {
     return FALSE;
 }
 
+
 //STA;2,8,4,6,0,f49dbcd0-77e5-6700-9c31-2a057f00fcca;QpruAF6M8x0g6ZZ
 save() {
     if( GI_Data_Prim != -1 ) {
@@ -121,6 +151,7 @@ save() {
         llSetLinkPrimitiveParamsFast( GI_Data_Prim, [PRIM_DESC, "STA;"+ text +";"+ encode( llGetOwner(), text )] );
     }
 }
+
 
 // Erase stored data
 // used on owner change
@@ -132,7 +163,7 @@ wipe() {
     }
 }
 
-//STA;0,0,0,0,0,6a69e885-99a1-9f04-ee42-c2f160fb452c;Q1eH1V9BmsghJv+
+
 string GS_Salt = "CATS_WIN!"; // salt for save data
 string encode( key id, string text ) {
     string text = llXorBase64( llStringToBase64( GS_Salt + text ), llIntegerToBase64( key2Chan(id,1000000,1000000) ) );
@@ -237,6 +268,7 @@ integer setRole( list tokens ) {
     return TRUE;
 }
 
+
 // map prims and find display prims
 map() {
     integer i;
@@ -249,12 +281,13 @@ map() {
             setStatDisp( i, 1, 0 ); // set zro value
         } else if( cmd == ".DATA_01" ) {
             GI_Data_Prim = i;
-        } else if( cmd == ".INV" ) {
+        } else if( cmd == ".T_INV" ) {
             GI_Inv_Disp = i;
         }
     }
     GL_Stat_Disp = data; // preserve stat prims in global list
 }
+
 
 // update stat display prims
 updateStats() {
@@ -280,9 +313,11 @@ updateStats() {
     }
 }
 
+
 updateOverhead() {
     llRegionSayTo( llGetOwner(), GI_Chan_A, "ROL "+ (string)GK_Role_Icon );
 }
+
 
 // find clicked basic button
 doButton( string bName ) {
@@ -308,6 +343,7 @@ doButton( string bName ) {
     }
 } 
 
+
 // find clicked incrament button
 doInc( string bName ) {
     if( bName == ".I_INC_HP" ) {
@@ -321,6 +357,27 @@ doInc( string bName ) {
     }
 }
 
+
+
+doInv( integer link, integer face ) {
+    llMessageLinked( LINK_SET, 5, "DI:"+ (string)link +":"+ (string)face, "INV_SYS" );
+    /*
+    if( face >= 1 && face <= 6 ) {
+        integer i;
+        vector col;
+        for( i=1; i<=6; ++i ) {
+            if( face == i ) {
+                col = <1,1,1>;
+            } else {
+                col = <0.5,0.25,0.25>;
+            }
+            llSetLinkPrimitiveParamsFast( link, [PRIM_COLOR, i, col, 1] );
+        }
+    }
+    */
+}
+
+
 // do a dice roll
 doRoll( string tag ) {
     list tags = ["STR", "CHA", "DEX", "INT", "CON"];
@@ -333,6 +390,7 @@ doRoll( string tag ) {
     }
 }
 
+
 // add a sign to an int and return it as a string
 string sign( integer val ) {
     if( val >= 0 ) {
@@ -342,37 +400,6 @@ string sign( integer val ) {
 }
 
 
-
-/*  INVENTORY STUFF  */
-integer GI_Out = FALSE;
-vector GV_Scale_In = <0.04305, 0.10931, 0.31523>;
-vector GV_Scale_Out = <0.04305, 0.47264, 0.31523>;
-vector GV_Loc_In = <-0.03540, -0.39216, 0.26000>;
-vector GV_Loc_Out = <-0.03540, -0.13480, 0.26000>;
-list GL_Textures = [
-    "36957213-c565-5a1d-4104-647571b73061",
-    "af8c40de-aa44-fb43-2aed-2a235b62632a",
-    "a2b79dc5-885c-1575-bb21-78e23b121b7b",
-    "21a3600f-67cd-2faf-ac8c-808a1521c979",
-    "73c536b4-5bc3-17e7-710d-4f06a027f649",
-    "86ed7b5c-7831-7138-a063-0e89393b7da3",
-    "8234981c-6a98-69fe-204d-cb007ec0bbbc"
-];
-list GL_Faces = [ 4, 1, 5, 2, 6, 3 ]; // faces of inventory hud, left -> right, top -> bottom
-
-// DEBUG Populate Inventory Panel
-generate() {
-    if( GI_Inv_Disp == -1 ) {
-        return;
-    }
-    integer i;
-    integer num = llGetListLength( GL_Faces );
-    integer len = llGetListLength( GL_Textures );
-    for( i=0; i<num; ++i ) {
-        integer ran = (integer)llFloor( llFrand( len ) );
-        llSetLinkPrimitiveParamsFast( GI_Inv_Disp, [PRIM_TEXTURE, llList2Integer( GL_Faces, i ), llList2Key( GL_Textures, ran ), <1,1,0>, <0,0,0>, PI/2] );
-    }
-}
 
 // Open/Close the display
 openDisplay( integer open ) {
@@ -416,15 +443,21 @@ default {
         integer i;
         for( i=0;i<num;++i ) {
             if( llDetectedKey(i) == llGetOwner() ) {
-                string pressed = llGetLinkName( llDetectedLinkNumber(i) );
+                integer link = llDetectedLinkNumber(i);
+                string pressed = llGetLinkName( link );
                 string test = llToUpper( pressed );
                 string ct = llGetSubString( test, 0,1 );
                 if( ct == ".B") {
                     doButton( test );
                 } else if( ct == ".I" ) {
                     doInc( test );
-                } else if( ct == ".D") {
+                } else if( ct == ".D" ) {
                     doRoll( llToUpper( llList2String(llGetLinkPrimitiveParams(llDetectedLinkNumber(i),[PRIM_DESC]),0) ) );
+                } else if( ct == ".T" ) {
+                    if( test == ".T_INV" ) {
+                        integer face = llDetectedTouchFace( i );
+                        doInv( link, face );
+                    }
                 }
             }
         }
