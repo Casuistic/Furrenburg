@@ -51,6 +51,17 @@ integer GI_Listen_B_Range = 100000; // set the range of values
 
 
 
+
+
+
+
+
+
+
+
+
+
+
 // uuid to integer
 integer key2Chan ( key id, integer base, integer rng ) {
     integer sine = 1;
@@ -368,6 +379,13 @@ openDisplay( integer open ) {
 }
 
 /*  END OF INVENTORY STUFF  */
+
+
+
+
+
+
+
 
 
 default {

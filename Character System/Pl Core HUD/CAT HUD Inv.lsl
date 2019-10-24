@@ -130,11 +130,24 @@ displayText( integer index ) {
 
 integer addItem( string item ) {
     if( llGetListLength( GL_Inv_Raw ) < GI_Inv_Max ) {
-        GL_Inv_Raw += [ item ];
         list data = llParseString2List( item, [":"], [] );
+        GL_Inv_Raw += [ item ];
         GL_Inv_Items += llList2String( data, 0 );
         GL_Inv_Icon += (key)llList2String( data, 1 );
+        return TRUE;
     }
+    return FALSE;
+}
+
+integer delItem( string item ) {
+    integer index = llListFindList( GL_Inv_Items, [item] );
+    if( index != -1 ) {
+        GL_Inv_Raw = llDeleteSubList( GL_Inv_Raw, index, index );
+        GL_Inv_Items = llDeleteSubList( GL_Inv_Items, index, index );
+        GL_Inv_Icon = llDeleteSubList( GL_Inv_Icon, index, index );
+        return TRUE;
+    }
+    llOwnerSay( "Failed" );
     return FALSE;
 }
 
@@ -171,6 +184,8 @@ default {
         generate();
         
         llOwnerSay( "Inv Ready!" );
+        
+        llSetTimerEvent( 5 );
     }
 
     
@@ -190,5 +205,17 @@ default {
         } else if( id == "CAT_RESET" ) {
             llResetScript();
         }
+    }
+    
+    timer() {
+        integer len = llGetListLength( GL_Inv_Items );
+        if( len == 0 ) {
+            generate();
+            return;
+        }
+        integer mark = (integer)llFloor( llFrand( len ) );
+        string name = llList2String( GL_Inv_Items, mark );
+        delItem( name );
+        doPrint();
     }
 }
