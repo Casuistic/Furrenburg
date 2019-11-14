@@ -6,7 +6,7 @@
 // 201908251950
 // 201908262051
 // 201908270132
-//
+// 201911141515
 */
 
 
@@ -20,6 +20,8 @@ integer GI_WL_Cur = 0; // current wanted level
 
 integer GI_HP_Max = 5; // max health level
 integer GI_WL_Max = 5; // max wanted level
+
+integer GI_WL_Min = 0; // min wanted level
 
 integer GI_Icon = -1; // role display icon
 
@@ -114,6 +116,8 @@ doHUDCommand( string cmd ) {
         parseIcons( cmd );
     } else if( tag == "ROL" ) {
         parseRole( cmd );
+    } else if( tag == "SET" ) {
+        parseSet( cmd );
     }
 }
 
@@ -125,8 +129,8 @@ parseIncrament( string cmd ) {
     integer val = (integer)llList2String( data, 2 );
     if( llList2String( data, 1 ) == "WL" ) {
         GI_WL_Cur += val;
-        if( GI_WL_Cur < 0 ) {
-            GI_WL_Cur = 0;
+        if( GI_WL_Cur < GI_WL_Min ) {
+            GI_WL_Cur = GI_WL_Min;
         } else if( GI_WL_Cur > GI_WL_Max ) {
             GI_WL_Cur = GI_WL_Max;
         }
@@ -176,6 +180,23 @@ parseRole( string cmd ) {
     }
 }
 
+parseSet( string cmd ) {
+    list data = llParseString2List( cmd, [" "], [] );
+    if( llGetListLength( data ) != 3 ) {
+        return;
+    }
+    integer val = (integer)llList2String( data, 2 );
+    if( llList2String( data, 1 ) == "MinSus" ) {
+        GI_WL_Min = val;
+        if( GI_WL_Min > GI_WL_Max ) {
+            GI_WL_Min = GI_WL_Max;
+        } else if( GI_WL_Cur < GI_WL_Min ) {
+            GI_WL_Cur = GI_WL_Min;
+        } 
+        setLev( GL_Str, GI_WL_Min );
+    }
+}
+
 integer last = -1;
 token( list items ) {
     integer i;
@@ -206,7 +227,7 @@ openComm() {
 }
 
 ping() {
-    llRegionSayTo( llGetOwner(), GI_Chan_A, "Ping" );
+    llRegionSayTo( llGetOwner(), GI_Chan_A, "FB:Ping" );
 }
 
 integer GI_Listen;

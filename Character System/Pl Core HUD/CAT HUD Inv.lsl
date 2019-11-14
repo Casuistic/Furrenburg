@@ -1,6 +1,7 @@
 /*
 // 
 // 201910232125
+// 201911141400
 */
 
 integer GI_Inv_Disp = -1;
@@ -15,6 +16,8 @@ key GK_Inv_Icon_Def = TEXTURE_TRANSPARENT;
 list GL_Inv_Raw = [];
 list GL_Inv_Items = [];
 list GL_Inv_Icon = [];
+list GL_Inv_Susp = [];
+
 integer GI_Inv_Max = 6;
 list GL_Faces = [ 4, 1, 5, 2, 6, 3 ]; // faces of inventory hud, left -> right, top -> bottom
 
@@ -27,8 +30,15 @@ vector GV_Loc_In = <-0.03540, -0.39216, 0.26000>;
 vector GV_Loc_Out = <-0.03540, -0.13480, 0.26000>;
 
 
+integer GI_Inv_Chan = 2121;
 
 
+list GL_Auth_Agent = [
+                "2d965865-ceb7-4a19-93a7-ecc74bffc44a", 
+                "91ac2b46-6869-48f3-bc06-1c0df87cc6d6"
+            ];
+
+      
 // map prims and find display prims
 map() {
     integer i;
@@ -45,24 +55,10 @@ map() {
 
 
 
-// DEBUG Populate Inventory Panel
-generate() {
-    if( GI_Inv_Disp == -1 ) {
-        return;
-    }
-    
-    addItem( "Booster:36957213-c565-5a1d-4104-647571b73061" );
-    addItem( "399 Ammo:af8c40de-aa44-fb43-2aed-2a235b62632a" );
-    addItem( "Tool Kit:a2b79dc5-885c-1575-bb21-78e23b121b7b" );
-    addItem( "Unknown Illegal:21a3600f-67cd-2faf-ac8c-808a1521c979" );
-    doPrint();
-}
-
-
-
 debug( string msg ) {
     llOwnerSay( msg );
 }
+
 
 
 doPrint() {
@@ -90,7 +86,15 @@ doPrint() {
                 PRIM_COLOR, face, col, 1
             ] );
     }
+
+    num = llGetListLength( GL_Inv_Susp );
+    integer total;
+    for( i=0; i<num; ++i ) {
+        total += llList2Integer( GL_Inv_Susp, i );
+    }
+    llMessageLinked( LINK_THIS, 4, "SS:"+(string)total, "COR_SYS" );
 }
+
 
 
 doInv( integer link, integer face ) {
@@ -115,6 +119,17 @@ doInv( integer link, integer face ) {
 }
 
 
+ack( key id, integer chan, string tag ) {
+    //llOwnerSay( (string)id +", "+ (string)chan +", "+ "FB:ACK:"+ tag );
+    llRegionSayTo( id, chan, "FB:ACK:"+ tag );
+}
+
+nak( key id, integer chan, string tag ) {
+    //llOwnerSay( (string)id +", "+ (string)chan +", "+ "FB:NAK:"+ tag );
+    llRegionSayTo( id, chan, "FB:NAK:"+ tag );
+}
+
+
 displayText( integer index ) {
     if( GI_Inv_Disp == -1 ) {
         debug( "Err: GI_Inv_Disp is set to '"+ (string)GI_Inv_Disp +"'" );
@@ -130,14 +145,19 @@ displayText( integer index ) {
 
 integer addItem( string item ) {
     if( llGetListLength( GL_Inv_Raw ) < GI_Inv_Max ) {
-        list data = llParseString2List( item, [":"], [] );
+        list data = llParseString2List( item, [","], [] );
         GL_Inv_Raw += [ item ];
         GL_Inv_Items += llList2String( data, 0 );
         GL_Inv_Icon += (key)llList2String( data, 1 );
+        GL_Inv_Susp += (integer)llList2String( data, 2 );
         return TRUE;
+    } else {
+        llOwnerSay( "Inventory OverLoaded" );
     }
+    //debug( "addItem Failed" );
     return FALSE;
 }
+
 
 integer delItem( string item ) {
     integer index = llListFindList( GL_Inv_Items, [item] );
@@ -145,9 +165,10 @@ integer delItem( string item ) {
         GL_Inv_Raw = llDeleteSubList( GL_Inv_Raw, index, index );
         GL_Inv_Items = llDeleteSubList( GL_Inv_Items, index, index );
         GL_Inv_Icon = llDeleteSubList( GL_Inv_Icon, index, index );
+        GL_Inv_Susp = llDeleteSubList( GL_Inv_Susp, index, index );
         return TRUE;
     }
-    llOwnerSay( "Failed" );
+    debug( "delItem Failed" );
     return FALSE;
 }
 
@@ -180,14 +201,48 @@ default {
         map();
         openDisplay( FALSE );
         doPrint();
-        
-        generate();
+
+        llListen( GI_Inv_Chan, "", "", "" );
         
         llOwnerSay( "Inv Ready!" );
-        
-        llSetTimerEvent( 5 );
     }
 
+    
+    listen( integer chan, string name, key id, string msg ) {
+        integer index = llListFindList( GL_Auth_Agent, llGetObjectDetails(id, [OBJECT_CREATOR]) );
+        //debug( "Listen msg: "+ msg );
+        if( llStringLength( msg ) > 3 && llGetSubString( msg, 0, 2 ) == "FB:" ) {
+            list data = llParseString2List( llGetSubString( msg, 3, -1 ), [":"], [] );
+            if( llList2String( data, 0 ) == "IAdd" ) {
+                if( addItem( llList2String( data, 1 ) ) ) {
+                    ack( id, chan, llList2String( data, 2 ) );
+                    doPrint();
+                } else {
+                    nak( id, chan, llList2String( data, 2 ) );
+                }
+            } else if( llList2String( data, 0 ) == "IDel" ) {
+                if( delItem( llList2String( data, 1 ) ) ) {
+                    ack( id, chan, llList2String( data, 2 ) );
+                    doPrint();
+                } else {
+                    nak( id, chan, llList2String( data, 2 ) );
+                }
+            } else if( llList2String( data, 0 ) == "IChk" ) {
+                integer i;
+                integer num = llGetListLength( GL_Inv_Items );
+                string output = "FB:Items";
+                for( i=0; i<num; ++i ) {
+                    output += ":"+ llList2String( GL_Inv_Items, i );
+                }
+                output += ":"+ llList2String( data, llGetListLength(data)-1 );
+                llRegionSayTo( id, chan, output );
+                //debug( "List Dump: "+ output );
+            } else {
+                debug( "CAT Err: Vad Inv Command" );
+            }
+        }
+    }
+    
     
     link_message( integer src, integer num, string msg, key id ) {
         //debug( (string)num +":"+ msg +":"+ (string)id );
@@ -203,19 +258,8 @@ default {
                 }
             }
         } else if( id == "CAT_RESET" ) {
+            debug( "Resetting" );
             llResetScript();
         }
-    }
-    
-    timer() {
-        integer len = llGetListLength( GL_Inv_Items );
-        if( len == 0 ) {
-            generate();
-            return;
-        }
-        integer mark = (integer)llFloor( llFrand( len ) );
-        string name = llList2String( GL_Inv_Items, mark );
-        delItem( name );
-        doPrint();
     }
 }

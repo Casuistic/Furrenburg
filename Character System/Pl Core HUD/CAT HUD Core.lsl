@@ -49,6 +49,7 @@ integer GI_Listen_B_Base = -200000; // set the minimum value
 integer GI_Listen_B_Range = 100000; // set the range of values
 
 
+integer GI_Min_Sus = 0;
 
 
 
@@ -302,6 +303,7 @@ updateStats() {
 
 updateOverhead() {
     llRegionSayTo( llGetOwner(), GI_Chan_A, "ROL "+ (string)GK_Role_Icon );
+    doSetMinSus( GI_Min_Sus );
 }
 
 
@@ -343,7 +345,9 @@ doInc( string bName ) {
     }
 }
 
-
+doSetMinSus( integer sLev ) {
+    llRegionSayTo( llGetOwner(), GI_Chan_A, "SET MinSus "+ (string)sLev );
+}
 
 doInv( integer link, integer face ) {
     llMessageLinked( LINK_SET, 5, "DI:"+ (string)link +":"+ (string)face, "INV_SYS" );
@@ -465,6 +469,18 @@ default {
                 }
             }
             llResetScript();
+        }
+    }
+    
+    
+    link_message( integer src, integer num, string msg, key id ) {
+        //debug( (string)num +":"+ msg +":"+ (string)id );
+        if( num == 4 && id == "COR_SYS" ) {
+            list data = llParseString2List( msg, [":"], [] );
+            if( llList2String( data, 0 ) == "SS" && llGetListLength( data ) == 2 ) {
+                GI_Min_Sus = (integer)llList2String( data, 1 );
+                doSetMinSus( GI_Min_Sus );
+            }
         }
     }
 }
