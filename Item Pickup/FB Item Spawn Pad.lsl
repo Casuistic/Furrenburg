@@ -5,6 +5,7 @@
 // 201911121730
 // 201911131622
 // 201911141249
+// 201912210620
 
 
 
@@ -32,6 +33,7 @@ integer GI_Item_Susp = 0; // suspishon to add when item picked up
 
 vector GV_Pad_Colour = <1,1,1>; // pad colour on valid state
 
+rotation GR_Ori = ZERO_ROTATION;
 
 
 string GS_DataNote = "Data"; // notecard name to be loaded
@@ -57,6 +59,7 @@ string GS_End_Flag = "VerFlag"; // verification flag
 
 // remove rezed display item
 clear() {
+    setPadColor( <0.2,0.2,0.2> );
     if( GK_Rezzed != NULL_KEY ) {
         llRegionSayTo( GK_Rezzed, chan, "DIE" );
         llTriggerSound( GS_Pickup_Sound, 1 );
@@ -70,10 +73,12 @@ integer rez() {
     integer num = llGetInventoryNumber( INVENTORY_OBJECT );
     if( num != 0 ) {
         name = llGetInventoryName( INVENTORY_OBJECT, 0 );
-        llRezObject( name, llGetPos()+<0,0,0.35>, ZERO_VECTOR, ZERO_ROTATION, chan );
+        llRezObject( name, llGetPos()+<0,0,0.35>, ZERO_VECTOR, GR_Ori, chan );
         llTriggerSound( GS_Respawn_Sound, 1 );
+        setPadColor( GV_Pad_Colour );
         return TRUE;
     }
+    setPadColor( <1,0,0> );
     return FALSE;
 }
 
@@ -144,6 +149,8 @@ parse( string raw ) {
             } else if( tag == "pad_colour" ) {
                 //llOwnerSay( "Set: '"+ tag +"' : '"+ val +"'" );
                 GV_Pad_Colour = (vector)val;
+            } else if( tag == "item_ang" ) {
+                GR_Ori = llEuler2Rot( (vector)val * DEG_TO_RAD );
             } else {
                 llOwnerSay( "Loaded Unknown Info: '"+ tag +"' = '"+ val +"'" );
             }
@@ -152,19 +159,21 @@ parse( string raw ) {
 }
 
 
-// handle error appearance
-error( integer err ) {
-    if( ! err ) {
-        llSetLinkPrimitiveParamsFast( LINK_THIS, [
-                    PRIM_COLOR, 1, GV_Pad_Colour, 1, 
+setPadColor( vector col ) {
+    llSetLinkPrimitiveParamsFast( LINK_THIS, [
+                    PRIM_COLOR, 1, col, 1, 
                     PRIM_TEXTURE, 1, "a0272345-9789-d187-4184-2e0815b2b1da", <1,1,0>, <0,0,0>, 0
                 ] );
+}
+
+
+// handle error appearance
+error( integer err ) {
+    if( !err ) {
+        setPadColor( <1,1,1> );
         llSetLinkTextureAnim( LINK_THIS, FALSE, 1, 0, 0, 0.0, 0.0, 1.0 );
     } else {
-        llSetLinkPrimitiveParamsFast( LINK_THIS, [
-                    PRIM_COLOR, 1, <1,0,0>, 1, 
-                    PRIM_TEXTURE, 1, "ffea530a-13be-969e-23c0-0d0c9f206247", <1,1,0>, <0,0,0>, 0
-                ] );
+        setPadColor( <1,0,0> );
         llSetLinkTextureAnim( LINK_THIS, ANIM_ON | SMOOTH | LOOP, 1, 1000, 1, 0.0, 1000.0, 100.0 );
     }
 }
@@ -183,9 +192,6 @@ string ranStr( integer length ) {
     } while( ++i < length );                                                    
     return output;
 }
-
-
-
 
 
 
