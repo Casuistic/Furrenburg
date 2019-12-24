@@ -10,6 +10,9 @@
 
 
 
+
+
+
 integer chan = -100; // used for death command to rezzed display item
 integer GI_Chan_Inv = 2121;
 
@@ -30,7 +33,7 @@ key GK_Item_Img  = NULL_KEY; // item image
 
 integer GI_Item_Susp = 0; // suspishon to add when item picked up
 
-
+vector GV_Pad_Offset = <0,0,0.35>;
 vector GV_Pad_Colour = <1,1,1>; // pad colour on valid state
 
 rotation GR_Ori = ZERO_ROTATION;
@@ -73,7 +76,7 @@ integer rez() {
     integer num = llGetInventoryNumber( INVENTORY_OBJECT );
     if( num != 0 ) {
         name = llGetInventoryName( INVENTORY_OBJECT, 0 );
-        llRezObject( name, llGetPos()+<0,0,0.35>, ZERO_VECTOR, GR_Ori, chan );
+        llRezObject( name, llGetPos() + GV_Pad_Offset, ZERO_VECTOR, GR_Ori, chan );
         llTriggerSound( GS_Respawn_Sound, 1 );
         setPadColor( GV_Pad_Colour );
         return TRUE;
@@ -149,6 +152,8 @@ parse( string raw ) {
             } else if( tag == "pad_colour" ) {
                 //llOwnerSay( "Set: '"+ tag +"' : '"+ val +"'" );
                 GV_Pad_Colour = (vector)val;
+            } else if( tag == "pad_offset" ) {
+                GV_Pad_Offset = (vector)val;
             } else if( tag == "item_ang" ) {
                 GR_Ori = llEuler2Rot( (vector)val * DEG_TO_RAD );
             } else {
