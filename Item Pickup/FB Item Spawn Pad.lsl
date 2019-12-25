@@ -6,8 +6,8 @@
 // 201911131622
 // 201911141249
 // 201912210620
-
-
+// 201912240651
+// 201925120855
 
 
 
@@ -29,9 +29,18 @@ string GS_Pickup_Sound = "bd884944-ee8c-1b34-96ee-27777eba991a";
 string GS_Respawn_Sound = "0a56abd7-4531-3786-118e-e2d5dbb6c66f";
 
 string GS_Item_Name = ""; // item name
+//string GS_Item_desc = "";
 key GK_Item_Img  = NULL_KEY; // item image
+//list GL_Item_Func = [];
+//integer GI_Item_Susp = 0; // suspishon to add when item picked up
 
-integer GI_Item_Susp = 0; // suspishon to add when item picked up
+string GS_JSON_Data = "";
+string GS_Encode_Key = ""; // encode();
+string GS_End_Flag = "VerFlag"; // verification flag
+
+
+
+
 
 vector GV_Pad_Offset = <0,0,0.35>;
 vector GV_Pad_Colour = <1,1,1>; // pad colour on valid state
@@ -48,7 +57,11 @@ key GK_LoadedCard = NULL_KEY; // notecard key / reloaded if not found on state c
 
 
 integer GI_Listen = -1; // listen for verification
-string GS_End_Flag = "VerFlag"; // verification flag
+
+
+string GS_Salt = "CAT_SPAWN_PAD!"; // salt for verification code
+
+
 
 
 
@@ -58,6 +71,24 @@ string GS_End_Flag = "VerFlag"; // verification flag
 /////////////////
 //  FUNCTIONS  //
 /////////////////
+// uuid to integer
+integer key2Chan ( key id, integer base, integer rng ) {
+    integer sine = 1;
+    if( base < 0 ) { sine = -1; }
+    return (base+(sine*(((integer)("0x"+(string)id)&0x7FFFFFFF)%rng)));
+}
+
+
+string encode( key id, string text ) {
+    string text = llXorBase64( llStringToBase64( GS_Salt + text ), llIntegerToBase64( key2Chan(id,1000000,1000000) ) );
+    if( llStringLength( text ) < 15 ) {
+        text += llGetSubString( "qwertyuiopasdfg", 0, 14-llStringLength(text) );
+    } else if( llStringLength( text ) > 15 ) {
+        text = llGetSubString( text, 0, 14 );
+    }
+    return text;
+}
+
 
 
 // remove rezed display item
@@ -90,8 +121,13 @@ integer rez() {
 // initalises contact to add item to someones inventory
 integer verify( key id ) {
     GK_Subject = id;
-    string space = ",";
-    llRegionSayTo( id, GI_Chan_Inv, "FB:IAdd:"+ GS_Item_Name +space+ (string)GK_Item_Img +space+ (string)GI_Item_Susp +":"+ GS_End_Flag );
+    //string space = ",";
+    string json = llList2Json( JSON_ARRAY, ["IAdd" ,GS_JSON_Data, GS_Encode_Key, GS_End_Flag] );//llList2Json( JSON_ARRAY, GL_Item_Func );
+    if( JSON_INVALID == json ) {
+        return FALSE;
+    }
+    //llRegionSayTo( id, GI_Chan_Inv, "FB:IAdd:"+ GS_Item_Name +space+ (string)GK_Item_Img +space+ (string)GI_Item_Susp +space+ json +space+ GS_Encode_Key +":"+ GS_End_Flag );
+    llRegionSayTo( id, GI_Chan_Inv, "FB:"+ json );
     return TRUE;
 }
 
@@ -110,6 +146,27 @@ integer isReady() {
     return TRUE;
 }
 
+
+resetItem() {
+    GS_Item_Name = "Unknown";
+    GK_Item_Img = "1377ee26-6938-c41a-99c4-74bbd2544917";
+    GS_JSON_Data = llList2Json( JSON_OBJECT, [
+            "name","Unknown",
+            "desc","No Item Desc",
+            "img","1377ee26-6938-c41a-99c4-74bbd2544917",
+            "susp","0"
+        ] );
+    GS_Encode_Key = encode( llGetKey(), GS_JSON_Data );
+}
+
+
+json( string index, string val ) {
+    GS_JSON_Data = llJsonSetValue( GS_JSON_Data, [index], val );
+}
+
+jsonArr( string index, integer num, string val ) {
+    GS_JSON_Data = llJsonSetValue( GS_JSON_Data, [index,num], val );
+}
 
 // notecard value parsing
 parse( string raw ) {
@@ -134,12 +191,23 @@ parse( string raw ) {
             if( tag == "item_name" ) {
                 //llOwnerSay( "Set: '"+ tag +"' : '"+ val +"'" );
                 GS_Item_Name = val;
+                json( "name", val );
+            } else if( tag == "item_desc") {
+                //GS_Item_desc = val;
+                json( "desc", val );
             } else if( tag == "item_icon" ) {
                 //llOwnerSay( "Set: '"+ tag +"' : '"+ val +"'" );
                 GK_Item_Img = (key)val;
+                json( "img", val );
             } else if( tag == "item_susp" ) {
                 //llOwnerSay( "Set: '"+ tag +"' : '"+ val +"'" );
-                GI_Item_Susp = (integer)val;
+                //GI_Item_Susp = (integer)val;
+                json( "susp", val );
+            } else if( tag == "item_func" ) {
+                if( llStringLength(tag) > 0 ) {
+                    //GL_Item_Func += val;
+                    jsonArr( "func", JSON_APPEND, val );
+                }
             } else if( tag == "item_spawn_time" ) {
                 //llOwnerSay( "Set: '"+ tag +"' : '"+ val +"'" );
                 GI_Respawn_Time = (integer)val;
@@ -161,6 +229,11 @@ parse( string raw ) {
             }
         }
     }
+}
+
+// prep the verification key
+compileKey() {
+    GS_Encode_Key = encode( llGetKey(), GS_JSON_Data );
 }
 
 
@@ -221,6 +294,7 @@ default {
         
         GK_LoadedCard = llGetInventoryKey( GS_DataNote );
         
+        resetItem();
         GI_DataNote_Line = 0;
         GK_Dataserver_Ref = llGetNotecardLine( GS_DataNote, GI_DataNote_Line );
         
@@ -240,6 +314,8 @@ default {
             llSetTimerEvent( 0 );
             GK_Dataserver_Ref = NULL_KEY;
             if (strData == EOF) {
+                compileKey();
+                llOwnerSay( "MEROWF!!! "+  GS_JSON_Data );
                 if( isReady() ){
                     state respawn;
                 }
@@ -252,7 +328,7 @@ default {
                 parse( strData );
             }
             
-            llSetTimerEvent( 1.5 );
+            llSetTimerEvent( 0.5 );
         }
     }
     
