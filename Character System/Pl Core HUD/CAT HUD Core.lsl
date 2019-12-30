@@ -23,6 +23,16 @@ list GL_Stat_Mods = [
     0 // con
 ];
 
+list GL_Stat_Augs = [
+    0, // str
+    0, // cha
+    0, // dex
+    0, // int
+    0 // con
+];
+
+
+
 integer GI_Data_Prim = -1;
 
 // store prims that display data
@@ -73,11 +83,27 @@ integer key2Chan ( key id, integer base, integer rng ) {
 
 
 // set a display prims texture offset
-setStatDisp( integer link, integer face, integer lev ) {
+setStatDispOld( integer link, integer face, integer lev ) {
     integer x = lev % 3;
     integer y = ((lev-x)/3);
     llSetLinkPrimitiveParamsFast( link, [PRIM_TEXTURE, face, GK_Display_Text, <.333,.333,0>,  <-.333+(0.333*x), -.333+(0.333*y), 0>, 0] );
 }
+
+setStatDisp( integer link, integer face, integer lev, integer aug ) {
+    vector col = <1,1,0>;
+    if( aug < 0 ) {
+        col = <1,0,0>;
+    } else if( aug > 0 ) {
+        col = <0,1,0>;
+    }
+    integer x = lev % 3;
+    integer y = ((lev-x)/3);
+    llSetLinkPrimitiveParamsFast( link, [
+            PRIM_TEXTURE, face, GK_Display_Text, <.333,.333,0>,  <-.333+(0.333*x), -.333+(0.333*y), 0>, 0,
+            PRIM_COLOR, face, col, 1
+        ] );
+}
+
 
 
 // SET UP POINT
@@ -266,7 +292,7 @@ map() {
         string cmd = llToUpper(llGetLinkName(i));
         if( cmd == ".D_STAT" ) { // find all the stat display prims
             data += i; // log stat display prims
-            setStatDisp( i, 1, 0 ); // set zro value
+            setStatDisp( i, 1, 0, 0 ); // set zro value
         } else if( cmd == ".DATA_01" ) {
             GI_Data_Prim = i;
         } else if( cmd == ".T_INV" ) {
@@ -286,17 +312,17 @@ updateStats() {
         // GL_Stat_Mods = str cha dex int con
         string desc = llToUpper( llList2String(llGetLinkPrimitiveParams(link,[PRIM_DESC]),0) );
         if( desc == "STR" ) {
-            setStatDisp( link, 1, llList2Integer( GL_Stat_Mods, 0 ) );
+            setStatDisp( link, 1, llList2Integer( GL_Stat_Mods, 0 ), llList2Integer( GL_Stat_Augs, 0 ) );
         } else if( desc == "CHA" ) {
-            setStatDisp( link, 1, llList2Integer( GL_Stat_Mods, 1 ) );
+            setStatDisp( link, 1, llList2Integer( GL_Stat_Mods, 1 ), llList2Integer( GL_Stat_Augs, 1 ) );
         } else if( desc == "DEX" ) {
-            setStatDisp( link, 1, llList2Integer( GL_Stat_Mods, 2 ) );
+            setStatDisp( link, 1, llList2Integer( GL_Stat_Mods, 2 ), llList2Integer( GL_Stat_Augs, 2 ) );
         } else if( desc == "INT" ) {
-            setStatDisp( link, 1, llList2Integer( GL_Stat_Mods, 3 ) );
+            setStatDisp( link, 1, llList2Integer( GL_Stat_Mods, 3 ), llList2Integer( GL_Stat_Augs, 3 ) );
         } else if( desc == "CON" ) {
-            setStatDisp( link, 1, llList2Integer( GL_Stat_Mods, 4 ) );
+            setStatDisp( link, 1, llList2Integer( GL_Stat_Mods, 4 ), llList2Integer( GL_Stat_Augs, 4 ) );
         } else { // unknown stat?
-            setStatDisp( link, 1, 0 );
+            setStatDisp( link, 1, 0, 0 );
         }
     }
 }
@@ -387,6 +413,24 @@ openDisplay( integer open ) {
 
 
 
+
+
+integer parseStatAdjust( string msg, string tag ) {
+    if( tag == "STAT_ADJ" ) {
+        list data = llParseString2List( msg, [","], [] );
+        if( llGetListLength( data ) == 5 ) {
+            list out = [];
+            integer i;
+            for( i=0; i<5; ++i ) {
+                out += (integer)llList2String( data, i );
+            }
+            GL_Stat_Augs = out;
+            updateStats();
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
 
 
 
@@ -482,6 +526,8 @@ default {
                 GI_Min_Sus = (integer)llList2String( data, 1 );
                 doSetMinSus( GI_Min_Sus );
             }
+        } else if( num == 555 ) {
+            parseStatAdjust( msg, (string)id );
         }
     }
 }
