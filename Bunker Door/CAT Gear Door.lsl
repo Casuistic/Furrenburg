@@ -3,38 +3,62 @@
 *
 *
 *   201912300320
+*   201912301700
+*   201912310711
 */
-
-vector GP_Pos_Start;
-rotation GR_Rot_Start;
-
-vector GP_Pos_End;
-rotation GR_Rot_End;
-
-vector GV_Base_Pos;
-vector GV_Base_Rot;
 
 integer GI_Open = FALSE;
 integer GI_Active = FALSE;
 
-list GL_Keyframes;
-float GF_Timer;
 
-key GK_Root_Ref = "5ed5fbc1-4c48-e3c3-62f4-8b41715e23b1";
+
+key GK_Root_Ref = NULL_KEY;
 vector GP_Root_Pos;
 rotation GR_Root_Rot;
 
 integer GI_Listen = -1;
 integer GI_Chan = -1;
 
-list GL_Frame_Pos;
-list GL_Frame_Rot; 
-list GL_Frame_Time;
 
-string GS_Data =  "[[\"<2.097900, 0.125000, -0.145080>\",\"<0.000000, 0.000000, 0.000000>\"],[\"<0.000000, 0.000000, 0.000000>\",\"<0.000000, 0.000000, 0.000000>\",3.250000],[\"<0.000000, -0.026590, 0.000000>\",\"<0.000000, 0.000000, 0.000000>\",0.750000],[\"<0.000000, 1.050000, 0.000000>\",\"<0.000000, 0.000000, 0.000000>\",2.000000],[\"<0.000000, 0.000000, 0.000000>\",\"<0.000000, 0.000000, 0.000000>\",0.500000],[\"<-4.000000, 0.000000, 0.000000>\",\"<0.000000, -118.000000, 0.000000>\",2.500000],[\"<0.000000, 0.000000, 0.000000>\",\"<0.000000, 0.000000, 0.000000>\",0.125000]]";
+list GL_Frames_Open = [
+        <0.000000, 0.000000, 0.000000>, <0.000000, 0.000000, 0.000000>, 3.250000,
+        <0.000000, -0.026590, 0.000000>, <0.000000, 0.000000, 0.000000>, 0.750000,
+        <0.000000, 1.050000, 0.000000>, <0.000000, 0.000000, 0.000000>, 2.000000,
+        <0.000000, 0.000000, 0.000000>, <0.000000, 0.000000, 0.000000>, 0.500000,
+        <-4.000000, 0.000000, 0.000000>, <0.000000, -118.000000, 0.000000>, 2.500000,
+        <0.000000, 0.000000, 0.000000>, <0.000000, 0.000000, 0.000000>, 0.125000
+];
+
+list GL_Keyframes_Open;
+float GF_Timer_Open;
+
+list GL_Frames_Close = [
+        <0.000000, 0.000000, 0.000000>, <0.000000, 0.000000, 0.000000>, 0.250000,
+        
+        <4.000000, 0.000000, 0.000000>, <0.000000, 118.000000, 0.000000>, 2.500000, // roll across
+        
+        <0.000000, 0.000000, 0.000000>, <0.000000, 0.000000, 0.000000>, 2.50000, // pause
+        
+        <0.000000, -1.050000, 0.000000>, <0.000000, 0.000000, 0.000000>, 4.000000, // push in
+        
+        <0.000000, 0.026590, 0.000000>, <0.000000, 0.000000, 0.000000>, 0.750000,
+        
+        <0.000000, 0.000000, 0.000000>, <0.000000, 0.000000, 0.000000>, 0.250000
+];
+
+list GL_Keyframes_Close;
+float GF_Timer_Close;
 
 
 
+vector GV_Base_Pos = <2.09790, 0.12500, -0.14508>;
+vector GV_Base_Rot = <0.00000, 0.00000, 0.00000>;
+
+vector GP_Pos_Start;
+rotation GR_Rot_Start;
+
+vector GP_Pos_End;
+rotation GR_Rot_End;
 
 
 
@@ -49,6 +73,34 @@ integer key2Chan ( key id, integer base, integer rng ) {
     return (base+(sine*(((integer)("0x"+(string)id)&0x7FFFFFFF)%rng)));
 }
 
+integer genChan() {
+    integer offset = (integer)llGetObjectDesc();
+    integer number = key2Chan( llGetOwner(), 499999, 500000 );
+    integer chan = offset + number;
+    if( chan == 0 ) {
+        chan = number - offset;
+        if( chan == 0 ) {
+            chan = number;
+        }
+    }
+    llOwnerSay( "Active Chan: "+ (string)chan );
+    return chan;
+}
+
+integer genBaseChan() {
+    integer chan = (integer)llGetObjectDesc();
+    if( chan == 0 ) {
+        chan = 42;
+    }
+    return chan;
+}
+
+
+reqRef( integer chan ) {
+    llListenRemove( GI_Listen );
+    GI_Listen = llListen( chan, "", "", "SetRef" );
+    llSay( chan, "Need Ref" );
+}
 
 
 stop() {
@@ -56,13 +108,13 @@ stop() {
 }
 
 open() {
-    llSetTimerEvent( GF_Timer );
-    llSetKeyframedMotion ( GL_Keyframes, [KFM_MODE, KFM_FORWARD]);
+    llSetTimerEvent( GF_Timer_Open );
+    llSetKeyframedMotion ( GL_Keyframes_Open, [KFM_MODE, KFM_FORWARD]);
 }
 
 close() {
-    llSetTimerEvent( GF_Timer );
-    llSetKeyframedMotion ( GL_Keyframes, [KFM_MODE, KFM_REVERSE] );
+    llSetTimerEvent( GF_Timer_Close );
+    llSetKeyframedMotion ( GL_Keyframes_Close, [KFM_MODE, KFM_FORWARD] );
 }
 
 setKnownState( vector pos, rotation rot ) {
@@ -103,73 +155,56 @@ setup() {
     GP_Pos_Start =  (GV_Base_Pos * GR_Root_Rot) + GP_Root_Pos;
     GR_Rot_Start = llEuler2Rot( GV_Base_Rot * DEG_TO_RAD ) * GR_Root_Rot;
     /* END OF CALC START POS & ROT */
+
+    list temp = genKeyframes( GL_Frames_Open, GR_Rot_Start );
+    GL_Keyframes_Open = llList2List( temp, 3, -1 );
+    GF_Timer_Open = llList2Float( temp, 2 );
+    GP_Pos_End = GP_Pos_Start + (llList2Vector( temp, 0 ) * GR_Root_Rot);
+    GR_Rot_End = llEuler2Rot( (GV_Base_Rot + llList2Vector( temp, 1 )) * DEG_TO_RAD ) * GR_Root_Rot;
     
-    /* CALCULATE END POSITION & ROTATION */
-    integer i;
-    integer num = llGetListLength( GL_Frame_Pos );
-    vector spos = ZERO_VECTOR;
-    vector srot = ZERO_VECTOR;
-    for( i=0; i<num; ++i ) {
-        spos += llList2Vector( GL_Frame_Pos, i );
-        srot += llList2Vector( GL_Frame_Rot, i );
-    }
-    GP_Pos_End = GP_Pos_Start + (spos * GR_Root_Rot);
-    GR_Rot_End = llEuler2Rot( (GV_Base_Rot + srot) * DEG_TO_RAD ) * GR_Root_Rot;
-    /* END OF END POS & ROT CALCULATION */
-    
-    genKeyframes();
-    
-    setKnownState( GP_Pos_Start, GR_Rot_Start );
+    temp = genKeyframes( GL_Frames_Close, GR_Rot_Start );
+    GL_Keyframes_Close = llList2List( temp, 3, -1 );
+    GF_Timer_Close = llList2Float( temp, 2 );
+    vector ep = GP_Pos_Start + (llList2Vector( temp, 0 ) * GR_Root_Rot);
+    rotation er = llEuler2Rot( (GV_Base_Rot + llList2Vector( temp, 1 )) * DEG_TO_RAD ) * GR_Root_Rot;
+    // verify movement comes back to start?
 }
 
-parseStringData() {
-    /* PARSE STORED DATA */
-    list p = [];
-    list r = [];
-    list t = [];
-    list break = llJson2List( GS_Data );
-    if( llGetListLength( break ) >= 2 ) {
-        list start = llJson2List( llList2String( break, 0 ) );
-        if( llGetListLength( start ) == 2 ) {
-            GV_Base_Pos = (vector)llList2String( start, 0 );
-            GV_Base_Rot = (vector)llList2String( start, 1 );
-            integer i;
-            integer num = llGetListLength( break );
-            for( i=1; i<num; ++i ) {
-                list d = llJson2List( llList2String( break, i ) );
-                p += (vector)llList2String( d, 0 );
-                r += (vector)llList2String( d, 1 );
-                t += (float)llList2String( d, 2 );
-            }
-        }
-    }
 
-    GL_Frame_Pos = p;
-    GL_Frame_Rot = r; 
-    GL_Frame_Time = t;
-    /* END OF DATA PARSE */
-}
-
-genKeyframes() {
+list genKeyframes( list frame_data, rotation root_rot ) {
     /* GENERATE KEYFRAME DATA */
     list keyframes = [];
     float time = 0.5;
     integer i;
-    integer num = llGetListLength( GL_Frame_Pos );
-    //list json = [llList2Json( JSON_ARRAY, [GV_Base_Pos, GV_Base_Rot] )];
-    for( i=0; i<num; ++i ) {
+    integer num = llGetListLength( frame_data );
+    vector tpos = ZERO_VECTOR;
+    vector trot = ZERO_VECTOR;
+    for( i=0; i<num; i+=3 ) {
         keyframes += [
-            llList2Vector( GL_Frame_Pos, i ) * GR_Rot_Start, 
-            llEuler2Rot ( llList2Vector( GL_Frame_Rot, i ) * DEG_TO_RAD),
-            llList2Float( GL_Frame_Time, i ) ];
-            //json += llList2Json( JSON_ARRAY, [llList2Vector( GL_Frame_Pos, i ), llList2Vector( GL_Frame_Rot, i ), llList2Float( GL_Frame_Time, i )] );
-            time += llFabs( llList2Float( GL_Frame_Time, i ) );
+            llList2Vector( frame_data, i ) * root_rot, 
+            llEuler2Rot ( llList2Vector( frame_data, i+1 ) * DEG_TO_RAD),
+            llList2Float( frame_data, i+2 ) ];
+            time += llFabs( llList2Float( frame_data, i+2 ) );
+        tpos += llList2Vector( frame_data, i );
+        trot += llList2Vector( frame_data, i+1 );
     }
-    //llOwnerSay( llList2Json( JSON_ARRAY, json ) );
-    GL_Keyframes = keyframes;
-    GF_Timer = time;
+    return [tpos, trot, time] + keyframes;
     /* END OF KEYFRAME GENERATION */
 }
+
+
+
+
+integer filterListen( key id ) {
+    if( llGetOwner() != llGetOwnerKey( id ) ) {
+        return TRUE;
+    }
+    if( llList2String( llGetObjectDetails( id, [OBJECT_DESC] ), 0 ) != llGetObjectDesc() ) {
+        return TRUE;;
+    }
+    return FALSE;
+}
+
 
 
 
@@ -179,57 +214,75 @@ genKeyframes() {
 default {
     on_rez( integer peram ) {
         if( peram != 0 ) {
-            GI_Listen = llListen( peram, "", "", "SetRef" );
+            llSetObjectDesc( (string)peram );
+            reqRef( peram );
+        } else {
+            reqRef( genBaseChan() );
         }
         stop();
     }
     
+    state_entry() {
+        stop();
+        llSetTimerEvent( 15 );
+        reqRef( genBaseChan() );
+    }
+    
+    timer() {
+        llSetTimerEvent( 0 );
+        llOwnerSay( "Err: Frame Ref Not Set" );
+    }
+    
     listen( integer chan, string name, key id, string msg ) {
+        if( filterListen(id) ) {
+            return;
+        }
         if( msg == "SetRef" ) {
             llListenRemove( GI_Listen );
             GK_Root_Ref = id;
             GI_Chan = key2Chan( GK_Root_Ref, 499999, 500000 );
             
-            parseStringData();
-            
             state ready;
         }
-    }
-
-    state_entry() {
-        llOwnerSay( "Idle" );
-        stop();
     }
 }
 
 
 state ready {
     on_rez( integer peram ) {
-        state default;
+        llResetScript();
     }
     
     state_entry() {
+        GI_Chan = genChan();
+        llListen( GI_Chan, "", "", "Open Bunker" );
+        llListen( GI_Chan, "", "", "Close Bunker" );
+        
         stop();
         setRef();
         setup();
+        llOwnerSay( "Ready" );
     }
     
-    touch_start( integer num ) {
+    listen( integer chan, string name, key id, string msg ) {
         if( GI_Active ) {
             return;
         }
-        if( !GI_Open ) {
+        if( filterListen( id ) ) {
+            return;
+        }
+        if( msg == "Open Bunker" ) {
             GI_Open = TRUE;
             GI_Active = TRUE;
-            llWhisper( GI_Chan, "Door Open" );
+            llSay( GI_Chan, "Door Open" );
             verifyRoot();
             setKnownState( GP_Pos_Start, GR_Rot_Start );
             open();
             llTriggerSound( "915bd2eb-f681-bf95-2153-1439f567e55e", 1 );
-        } else {
+        } else if( msg == "Close Bunker" ) {
             GI_Open = FALSE;
             GI_Active = TRUE;
-            llWhisper( GI_Chan, "Door Close" );
+            llSay( GI_Chan, "Door Close" );
             verifyRoot();
             setKnownState( GP_Pos_End, GR_Rot_End );
             close();
@@ -242,8 +295,10 @@ state ready {
         GI_Active = FALSE;
         if( !GI_Open ) {
             setKnownState( GP_Pos_Start, GR_Rot_Start );
+            llShout( GI_Chan, "Ready Closed" );
         } else {
             setKnownState( GP_Pos_End, GR_Rot_End );
+            llShout( GI_Chan, "Ready Open" );
         }
     }
 }
