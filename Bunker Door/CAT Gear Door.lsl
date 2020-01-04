@@ -139,8 +139,7 @@ verifyRoot() {
             setup();
         }
     } else {
-        llOwnerSay( "Door Frame Not Found. Self Terminating." );
-        llDie();
+        llOwnerSay( "Door Frame Not Found" );
     }
 }
 
