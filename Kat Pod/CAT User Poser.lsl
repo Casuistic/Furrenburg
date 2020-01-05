@@ -1,10 +1,17 @@
 /*
     CAT User Animator and pose adjust control script
-    Likely could bemerged with main(ui) script to have only one change event
+    Likely could be merged with main(ui) script to have only one change event
 
 
 */
 // 202001041738
+// 202001051745
+// 202001052125
+
+#include <oups.lsl> // debugging
+string GS_Script_Name = "CAT Pod Poser"; // debugging
+
+
 
 integer anim_index = 0;
 
@@ -85,39 +92,46 @@ adjustPos( integer act ) {
 
 
 
+getUser() {
+    key id = llAvatarOnSitTarget();
+    if( id != NULL_KEY ) {
+        if( GI_Closed ) {
+            llRegionSayTo( id, 0, "Try opening the pod before sitting in it!" );
+            llUnSit( id );
+            return;
+        }
+        llMessageLinked( LINK_THIS, 130, (string)llAvatarOnSitTarget(), "NewUser" );
+        llRequestPermissions( id, 
+                PERMISSION_TRIGGER_ANIMATION | PERMISSION_TAKE_CONTROLS | PERMISSION_CONTROL_CAMERA );
+    } else {
+        if( llGetPermissions() & PERMISSION_TRIGGER_ANIMATION ) {
+            llStopAnimation( llGetInventoryName( INVENTORY_ANIMATION, anim_index ) );
+        }
+        llMessageLinked( LINK_THIS, 130, (string)NULL_KEY, "NewUser" );
+        llMessageLinked( LINK_THIS, 120, (string)TRUE, "OpenPod" );
+        GI_Hit = FALSE;
+        GI_Adjust = FALSE;
+    }
+}
 
 
 
 
 default {
     state_entry() {
+        safeLoad();
         llWhisper( 0, "'"+ llGetScriptName() +"' Reset" );
         llSitTarget( <0,1,-0.35>, llEuler2Rot( <0,0,90> * DEG_TO_RAD ) );
         
         llSetCameraAtOffset( <0,-0.5,0.25> );
         llSetCameraEyeOffset( <0,2.5,1.5> );
+
+        getUser();
     }
     
     changed( integer change ) {
         if( change & CHANGED_LINK ) {
-            key id = llAvatarOnSitTarget();
-            if( id != NULL_KEY ) {
-                if( GI_Closed ) {
-                    llRegionSayTo( id, 0, "Try opening the pod before sitting in it!" );
-                    llUnSit( id );
-                    return;
-                }
-                llMessageLinked( LINK_THIS, 130, (string)llAvatarOnSitTarget(), "NewUser" );
-                llRequestPermissions( id, PERMISSION_TRIGGER_ANIMATION | PERMISSION_TAKE_CONTROLS | PERMISSION_CONTROL_CAMERA );
-            } else {
-                if( llGetPermissions() & PERMISSION_TRIGGER_ANIMATION ) {
-                    llStopAnimation( llGetInventoryName( INVENTORY_ANIMATION, anim_index ) );
-                }
-                llMessageLinked( LINK_THIS, 130, (string)NULL_KEY, "NewUser" );
-                llMessageLinked( LINK_THIS, 120, (string)TRUE, "OpenPod" );
-                GI_Hit = FALSE;
-                GI_Adjust = FALSE;
-            }
+            getUser();
         }
     }
     

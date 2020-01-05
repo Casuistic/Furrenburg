@@ -1,11 +1,18 @@
 /*
     CAT Prim Animator 
-    Heavily dependant on sleep.
+    Heavily dependent on sleep.
     Load test one that uses quick timer option instead
 
 
 */
 // 202001041738
+// 202001051745
+// 202001052125
+
+#include <oups.lsl> // debugging
+string GS_Script_Name = "CAT Prim Mover"; // debugging
+
+
 
 // prim animation data
 list GL_Frames_RT = [
@@ -69,17 +76,14 @@ integer GI_Link_L;  // set by script
 integer GI_Link_LB; // set by script
 
 
-integer GI_Index;
-integer GI_Dir = 1; // indicates 1 open / -1 closed
+integer GI_Index; // set by script
+integer GI_Dir = 1; // values:  1 open(ing) // -1 close(ing)
 
 
-list GL_Sound_Frame_Index = [ 4, 3, 2, 1 ];
-list GL_Sound_Frame_UUID = [
-        "00eba1f0-f41f-ebe7-272c-e86728ecf63a", // 4
-        "080ae2d6-a4e8-3cfc-0ce6-780ddb55a79a", // 3
-        "1c02f608-99b4-217b-a4d4-8ce12469e5e4", // 2
-        "5580b5c5-1f7f-18dd-f758-15e2df90d7c4"  // 1
-    ];
+list GL_Sound_KV = []; // stores event frame + sound uuid/name. set by notecard load
+
+
+
 
 
 // map the link set finding the needed prims
@@ -115,7 +119,7 @@ integer run() {
         
         if( GI_Index < 0 ) {
             GI_Index = 0;
-            parseSound( GI_Index );
+            soundEvent( GI_Index );
             llMessageLinked( LINK_THIS, 100, "Closed", "PodState" );
             return FALSE;
         }
@@ -123,7 +127,7 @@ integer run() {
         index = (index -2) * GI_Frame_Data_Length;
 
         if( index < 0 ) {
-            parseSound( GI_Index );
+            soundEvent( GI_Index );
             llMessageLinked( LINK_THIS, 100, "Closed", "PodState" );
             return FALSE;
         }
@@ -132,7 +136,7 @@ integer run() {
         
         if( (GI_Index*GI_Frame_Data_Length) >= llGetListLength( GL_Frames_LT ) ) {
             GI_Index = llGetListLength( GL_Frames_LT ) / GI_Frame_Data_Length;
-            parseSound( GI_Index );
+            soundEvent( GI_Index );
             llMessageLinked( LINK_THIS, 100, "Open", "PodState" );
             return FALSE;
         }
@@ -140,7 +144,7 @@ integer run() {
         index *= GI_Frame_Data_Length;
     }
     
-    parseSound( GI_Index );
+    soundEvent( GI_Index );
     
     integer i;
     integer num = 10;
@@ -159,16 +163,18 @@ integer run() {
 }
 
 // play sound at target frame
-parseSound( integer index ) {
-    //llOwnerSay( "Sound: "+ (string)index );
-    integer frame = index;
-    index = llListFindList( GL_Sound_Frame_Index, [index] );
-    llOwnerSay( "Sound: "+ (string)frame +" : "+ (string)index );
-    if( index == -1 ) {
+soundEvent( integer ref ) {
+    integer index = llListFindList( GL_Sound_KV, [ref] );
+    if( index == -1 && index++ < llGetListLength( GL_Sound_KV ) ) {
         return;
     }
-    string sound = llList2String( GL_Sound_Frame_UUID, index );
-    llTriggerSound( sound, 1 );
+    string sound = llList2String( GL_Sound_KV, index );
+    if( llGetOwnerKey( (key)sound ) == NULL_KEY ) {
+        if( llGetInventoryType( sound ) != INVENTORY_SOUND ) {
+            return;
+        }
+    }
+    llTriggerSound( (key)sound, 1 );
 }
 
 // prep the frame for application. probably best to not pass in lists... uses a lot of memory since lsl doesnt have pointers
@@ -195,12 +201,36 @@ doStep( integer link, vector pos, vector rot ) {
 }
 
 
+// add/replace sounds in frame event list
+addSound( integer ref, string sound ) {
+    if( llGetOwnerKey( (key)sound ) == NULL_KEY ) {
+        if( llGetInventoryType( sound ) != INVENTORY_SOUND ) {
+            llOwnerSay( "Err: Sound: '"+ sound +"' Not Found" );
+            return;
+        }
+    }
+
+    integer index = llListFindList( GL_Sound_KV, [ref] );
+    if( index == -1 ) {
+        GL_Sound_KV += [ ref, sound ];
+    } else if( index+1 >= llGetListLength( GL_Sound_KV ) ) {
+        GL_Sound_KV += [sound];
+    } else {
+        GL_Sound_KV = llListReplaceList( GL_Sound_KV, [sound], index+1, index+1 );
+    }
+}
+
+
+
+
+
 
 
 
 
 default {
     state_entry() {
+        safeLoad();
         llWhisper( 0, "'"+ llGetScriptName() +"' Reset" );
         map();
     }
@@ -209,6 +239,7 @@ default {
         if( num == 120 ) {
             if( id == "OpenPod" ) {
                 if( msg == "1" ) {
+                    llMessageLinked( LINK_THIS, 100, "Opening", "PodState" );
                     GI_Dir = 1;
                     integer hold = TRUE;
                     for( ;hold; ) {
@@ -216,11 +247,20 @@ default {
                     }
                 } else {
                     GI_Dir = -1;
+                    llMessageLinked( LINK_THIS, 100, "Closing", "PodState" );
                     integer hold = TRUE;
                     for( ;hold; ) {
                         hold = run();
                     }
                 }
+            }
+        } else if( num == 200 ) {
+            if( id == "SOUND" ) {
+                list data = llParseString2List( msg, [","], [] );
+                addSound(
+                        (integer)llStringTrim( llList2String( data, 0 ), STRING_TRIM ), 
+                        llStringTrim( llList2String( data, 1 ), STRING_TRIM )
+                    );
             }
         }
     }

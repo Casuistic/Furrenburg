@@ -5,6 +5,13 @@
 
 */
 // 202001041738
+// 202001051745
+// 202001052125
+
+#include <oups.lsl> // debugging
+string GS_Script_Name = "CAT Pod UI"; // debugging
+
+
 
 
 string GS_Input; // entered code
@@ -13,7 +20,7 @@ integer GI_Max_Code_Len = 10; // max length of both target and entered code
 
 integer GI_Closed = FALSE; // is pod closed
 integer GL_Pad_Link = 0; // link number of keypad (found by script)
-
+integer GL_SZ_Link = 0;
 
 list GL_PadColours = [ // pad colours for diffrent pad events
     <1,1,1>, // DEFAULT (should be unused due to colour matching)
@@ -28,7 +35,21 @@ integer GI_NC_Line; // current notecard line (used only during loading)
 key GK_Rid = NULL_KEY; // dataserver id (used during loading)
 integer GI_Failed_Load = 0; // number of failed read efforts (used during loading)
 
+string GS_Safeword = "ABORT";
+integer GI_SW_Listen = -1;
 
+
+
+setSafeword( string word ) {
+    llListenRemove( GI_SW_Listen );
+    GS_Safeword = word;
+    if( word != "" ) {
+        GI_SW_Listen = llListen( 1, "", "", word );
+        llOwnerSay( "Safeword Set: '"+ word +"'" );
+    } else {
+        llOwnerSay( "Caution: No Safeword Set" );
+    }
+}
 
 
 // map link set to find and store needed link prim numbers
@@ -37,8 +58,11 @@ map() {
     
     integer num = llGetNumberOfPrims();
     for( ; num>0; --num ) {
-        if( llGetLinkName( num ) == ".l" ) {
+        string name = llGetLinkName( num );
+        if( name == ".l" ) {
             GL_Pad_Link = num;
+        } else if( name == ".sit zone" ) {
+            GL_SZ_Link = 1;
         }
     }
 }
@@ -151,6 +175,9 @@ addSound( integer ref, string sound ) {
 }
 
 
+
+
+
 testValidCode() {
     if( GI_Max_Code_Len < 4 ) {
         llOwnerSay( "Err: Minimum Max_Code_Len is 4" );
@@ -181,15 +208,18 @@ testValidCode() {
 
 default {
     on_rez( integer peram ) {
+        llWhisper( 0, "Reinitializing" );
+        resetScripts();
         llResetScript();
     }
     
     state_entry() {
+        safeLoad();
         llWhisper( 0, "'"+ llGetScriptName() +"' Reset" );
         map( );
         llSetLinkTextureAnim( LINK_THIS, ANIM_ON | SMOOTH | LOOP | PING_PONG, 3, 1, 200, 20, 120, 50);
         llMessageLinked( LINK_THIS, 120, (string)TRUE, "OpenPod" );
-        llWhisper( 0, "Reinitializing" );
+        //llWhisper( 0, "Reinitializing" );
         //resetScripts();
         llSleep( 0.5 );
         state load;
@@ -201,14 +231,22 @@ state active {
         map( );
         llSetLinkTextureAnim( LINK_THIS, ANIM_ON | SMOOTH | LOOP | PING_PONG, 3, 1, 200, 20, 120, 50);
         llMessageLinked( LINK_THIS, 120, (string)TRUE, "OpenPod" );
+        //llOwnerSay( llDumpList2String( GL_Sound_KV, "\n" ) );
+        setSafeword( GS_Safeword );
+    }
+
+    listen( integer chan, string name, key id, string msg ) {
+        if( chan == 0 ) {
+            llMessageLinked( LINK_SET, 500, "safeword", "safeword" );
+            return;
+        }
     }
     
     touch_start(integer num ) {
-
         integer link = llDetectedLinkNumber( 0 );
-        if( link == LINK_ROOT && llDetectedKey(0) == llAvatarOnSitTarget() ) {
+        if( (link == LINK_ROOT || link == GL_SZ_Link) && llDetectedKey(0) == llAvatarOnSitTarget() ) {
             integer face = llDetectedTouchFace( 0 );
-            if( face == 0 | face == 1 ) {
+            if( link == GL_SZ_Link || (face == 0 | face == 1) ) {
                 llMessageLinked( LINK_THIS, 110, "", "" );
             }
         } else if( ".l" == llGetLinkName( link ) ) {
@@ -222,10 +260,10 @@ state active {
         if( id == "PodState" ) {
             if( msg == "Open" ) {
                 GI_Closed = FALSE;
-                llOwnerSay( "Is Now Open" );
+                //llOwnerSay( "UI Is Now Open" );
             } else if( msg == "Closed" ) {
                 GI_Closed = TRUE;
-                llOwnerSay( "Is Now Closed" );
+                //llOwnerSay( "UI Is Now Closed" );
             }
         }
     }
@@ -245,9 +283,11 @@ state active {
 
 state load {
     state_entry() {
+        //resetScripts();
         GI_NC_Line = 0;
         GK_Rid = NULL_KEY;
         GI_Failed_Load = 0;
+        GL_Sound_KV = [];
         if( llGetInventoryType( "Data" ) != INVENTORY_NOTECARD ) {
             llSay( 0, "Data Card Not Found!" );
             state active;
@@ -263,10 +303,12 @@ state load {
             GK_Rid = NULL_KEY;
             if( data != EOF ) {
                 if( llGetSubString( data, 0,0 ) != "#" ) { // skip comments
-                    
-                    list break = llParseString2List( data, [":", "//" ], [] );
+                    list break = llParseString2List( data, [":"], ["//"] );
+                    integer index = llListFindList( break, ["//"] ); // find if comments
+                    if( index != -1 ) { // strip comments
+                        break = llList2List( break, 0, index-1 );
+                    } // end of strip comments
                     if( llGetListLength( break ) >= 2 ) {
-                        //llCSV2List
                         string tag = llToUpper( llList2String( break, 0 ) );
                         if( tag == "CODE" ) {
                             GS_RightCode = cutToLength( llStringTrim( llList2String( break, 1 ), STRING_TRIM ), GI_Max_Code_Len );
@@ -274,18 +316,30 @@ state load {
                             GI_Max_Code_Len = (integer)llStringTrim( llList2String( break, 1 ), STRING_TRIM );
                         } else if( tag == "KP_SOUND" ) {
                             list parse = llParseString2List( llList2String( break, 1 ), [","], [] );
-                            if( llGetListLength( parse ) != 2 ) {
-                                llOwnerSay( "Bad Sound Data: "+ data );
-                                return;
+                            if( llGetListLength( parse ) == 2 ) {
+                                addSound(
+                                        (integer)llStringTrim( llList2String( parse, 0 ), STRING_TRIM ), 
+                                        llStringTrim( llList2String( parse, 1 ), STRING_TRIM )
+                                    );
+                            } else {
+                                llOwnerSay( "Bad Sound Data: '"+ data +"'" );
                             }
-                            integer se = (integer)llStringTrim( llList2String( parse, 0 ), STRING_TRIM );
-                            string sk = llStringTrim( llList2String( parse, 1 ), STRING_TRIM );
-                            addSound( se, sk );
+                        } else if( tag == "SAFEWORD" ) {
+                            GS_Safeword = llStringTrim( llList2String( break, 1 ), STRING_TRIM );
                         } else {
-                            llOwnerSay( "Unknown Data: "+ data );
+                            if( llGetSubString( tag, 0,3 ) == "POD_" ) {
+                                llMessageLinked( LINK_THIS, 200, 
+                                    llList2String( break, 1 ), 
+                                    llGetSubString( tag, 4,-1 ) 
+                                    );
+                            } else {
+                                llOwnerSay( "Unknown Data: '"+ tag +" : "+ data +"'" );
+                            }
                         }
                     } else {
-                        llOwnerSay( "Short Data: "+ data );
+                        if( data != "" ) {
+                            llOwnerSay( "Short Data: '"+ data +"'" );
+                        }
                     }
                 }
                 llSetTimerEvent( 0.25 );
@@ -295,7 +349,6 @@ state load {
                 testValidCode();
                 state active;
             }
-            
         }
     }
     
