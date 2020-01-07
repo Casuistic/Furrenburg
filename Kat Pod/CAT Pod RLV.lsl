@@ -176,7 +176,6 @@ parsePoserSrcLM( string msg, key id ) {
             rlvPing( GK_User );
         }
     } else if( id == "Capture" ) {
-        llOwnerSay( "Doing Capture" );
         rlvCapture( (key)msg );
         
     } else if( id == "RefreshRLV" ) {
@@ -204,7 +203,7 @@ parseRLVSrcLM() {
 // perform safeword
 performRLVSafeword() {
     if( GK_User != NULL_KEY && llGetAgentSize( GK_User ) != ZERO_VECTOR ) {
-        llOwnerSay( "Performing Safeword release of "+ llKey2Name( GK_User ) );
+        llMessageLinked( LINK_THIS, 210, "Performing Safeword release of "+ llKey2Name( GK_User ), "Tattle" );
         rlvClear( GK_User );
     }
 }

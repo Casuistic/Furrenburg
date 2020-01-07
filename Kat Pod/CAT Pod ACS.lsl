@@ -168,6 +168,7 @@ clear() {
 }
 
 
+
 // parse ACS the 360 channel ACS commands
 parsACSBasic( string msg ) {
     if( llGetSubString( msg, 0, 3 ) == "ACS," ) {
@@ -224,6 +225,9 @@ parsACSAdv( string msg ) {
         }
     }
 }
+
+
+
 
 
 

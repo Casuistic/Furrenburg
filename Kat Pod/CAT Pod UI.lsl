@@ -47,6 +47,7 @@ integer GI_DB_Chan = -1192;
 
 
 integer GI_Chan_SW = 1;
+integer GI_Inform = TRUE;
 
 
 
@@ -267,6 +268,17 @@ integer parseDataLoad( string data ) {
 }
 
 
+sendIm( string msg ) {
+    if( !GI_Inform ) {
+        return;
+    }
+    key user = llGetOwner();
+    if( llGetAgentSize( user ) == ZERO_VECTOR ) {
+        llInstantMessage( user, msg );
+    } else {
+        llRegionSayTo( user, 0, msg );
+    }
+}
 
 
 
@@ -308,6 +320,7 @@ state active {
     listen( integer chan, string name, key id, string msg ) {
         if( chan == GI_Chan_SW ) {
             llMessageLinked( LINK_SET, 500, "safeword", "safeword" );
+            sendIm( "Safeword Used by: '"+ llKey2Name( id ) +"'" );
             return;
         }
     }
@@ -334,6 +347,11 @@ state active {
             } else if( msg == "Closed" ) {
                 GI_Closed = TRUE;
                 //llOwnerSay( "UI Is Now Closed" );
+            }
+        }
+        else if( num == 210 ) {
+            if( id == "Tattle" ) {
+                sendIm( msg );
             }
         }
     }

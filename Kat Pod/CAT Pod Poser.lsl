@@ -18,6 +18,7 @@ string GS_Script_Name = "CAT Pod Poser"; // debugging
 integer anim_index = 0;
 
 vector GV_Pos_Adj = <0,0,0>;
+vector GV_Pos_Adj_Limit = <0.5,0.5,0.5>;
 
 integer GI_Hit = FALSE;
 integer GI_Adjust = FALSE;
@@ -72,22 +73,40 @@ startPosAdjust( integer bool ) {
 adjustPos( integer act ) {
     float mod = 0.025;
     if( act & CONTROL_UP ) {
-        GV_Pos_Adj += <0,0,mod>;
+        GV_Pos_Adj.z += mod;
+        if( GV_Pos_Adj.z > GV_Pos_Adj_Limit.z ) {
+            GV_Pos_Adj.z = GV_Pos_Adj_Limit.z;
+        }
     }
     if( act & CONTROL_DOWN ) {
-        GV_Pos_Adj -= <0,0,mod>;
+        GV_Pos_Adj.z -= mod;
+        if( GV_Pos_Adj.z < -GV_Pos_Adj_Limit.z ) {
+            GV_Pos_Adj.z = -GV_Pos_Adj_Limit.z;
+        }
     }
     if( act & CONTROL_FWD ) {
-        GV_Pos_Adj += <0,mod,0>;
+        GV_Pos_Adj.y += mod;
+        if( GV_Pos_Adj.y > GV_Pos_Adj_Limit.y ) {
+            GV_Pos_Adj.y = GV_Pos_Adj_Limit.y;
+        }
     }
     if( act & CONTROL_BACK ) {
-        GV_Pos_Adj -= <0,mod,0>;
+        GV_Pos_Adj.y -= mod;
+        if( GV_Pos_Adj.y < -GV_Pos_Adj_Limit.y ) {
+            GV_Pos_Adj.y = -GV_Pos_Adj_Limit.y;
+        }
     }
     if( act & CONTROL_ROT_LEFT ) {
-        GV_Pos_Adj += <mod,0,0>;
+        GV_Pos_Adj.x += mod;
+        if( GV_Pos_Adj.x > GV_Pos_Adj_Limit.x ) {
+            GV_Pos_Adj.x = GV_Pos_Adj_Limit.x;
+        }
     }
     if( act & CONTROL_ROT_RIGHT ) {
-        GV_Pos_Adj -= <mod,0,0>;
+        GV_Pos_Adj.x -= mod;
+        if( GV_Pos_Adj.x < -GV_Pos_Adj_Limit.x ) {
+            GV_Pos_Adj.x = -GV_Pos_Adj_Limit.x;
+        }
     }
     adjustUser( llAvatarOnSitTarget() );
 }
@@ -104,7 +123,11 @@ getUser() {
         if( GI_Closed ) {
             llMessageLinked( LINK_THIS, 130, (string)id, "RefreshRLV" );
         }
-        GK_User = id;
+        if( GK_User == id ) {
+            llMessageLinked( LINK_THIS, 210, "Captive has been recaptured!", "Tattle" );
+        } else {
+            GK_User = id;
+        }
         llSetTimerEvent( 0 );
         llMessageLinked( LINK_THIS, 130, (string)llAvatarOnSitTarget(), "NewUser" );
         llRequestPermissions( id, 
@@ -126,7 +149,10 @@ checkForEscape( key id ) {
     if( id == NULL_KEY && id != GK_User && GI_Closed ) {
         // pos is closed
         if( llGetAgentSize( GK_User ) != ZERO_VECTOR ) {    // still in sim
+            llMessageLinked( LINK_THIS, 210, "Captive has left Pod", "Tattle" );
             doCapture( GK_User );
+        } else {
+            llMessageLinked( LINK_THIS, 210, "Captive has left Sim: '"+ llGetRegionName() +"'", "Tattle" );
         }
         GI_User_CD = 60;
         llSetTimerEvent( 10 );
@@ -176,6 +202,7 @@ performRLVSafeword() {
 default {
     dataserver(key qid, string data) {
         if ( GK_QID_Online_Check == qid ) {
+            GK_QID_Online_Check = NULL_KEY;
             if( data == "1" ) { // user is online;
                 // user is online
             } else {
@@ -185,10 +212,7 @@ default {
     }
 
     timer() {
-        llSetText( "EC"
-                    +"\nT1: "+ (string)GI_User_CD,
-                    <1,1,1>, 1
-                );
+        //llSetText( "EC\nT1: "+ (string)GI_User_CD, <1,1,1>, 1 );
         if ( --GI_User_CD >= 0 ) {
             if( llGetAgentSize( GK_User ) == ZERO_VECTOR ) {
                 lookupOnline( GK_User );
@@ -196,9 +220,11 @@ default {
                 doCapture( GK_User );
             }
         } else {
-            llOwnerSay( "Captive has Not Returned" );
+            llMessageLinked( LINK_THIS, 210, "Captive has Not Returned", "Tattle" );
             llMessageLinked( LINK_THIS, 120, (string)TRUE, "OpenPod" );
             llSetTimerEvent( 0 );
+            GK_User = NULL_KEY;
+            GI_User_CD = -1;
         }
     }
 
