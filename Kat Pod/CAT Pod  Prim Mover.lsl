@@ -8,9 +8,17 @@
 // 202001041738
 // 202001051745
 // 202001052125
+// 202001071140 // added recapture feature
+// 202001071751 // handled auto scaling
+// 202001071915 // fixed recapture ignoring safeword
+
 
 #include <oups.lsl> // debugging
-string GS_Script_Name = "CAT Prim Mover"; // debugging
+string GS_Script_Name = "CAT Pod Prim Mover"; // debugging
+
+
+float GV_Ref_Scale = 2.62071; // used for scaling relative to the root prims z scale
+
 
 
 
@@ -48,7 +56,7 @@ list GL_Frames_L = [
 ];
 
 list GL_Frames_RB = [
-        <0.201110, 0.150000, -0.925000>, <0.000000, 0.000000, 180.000000>,
+        <0.201110, 0.150000, -0.935000>, <0.000000, 0.000000, 180.000000>,
         <0.201110, 0.149990, -1.015860>, <0.000000, 0.000000, 180.000000>,
         <0.309130, 0.149990, -1.065860>, <-9.000000, 0.000000, 180.000000>,
         <0.409130, 0.149990, -1.103890>, <-32.000000, 0.000000, 180.000000>,
@@ -56,7 +64,7 @@ list GL_Frames_RB = [
 ];
 
 list GL_Frames_LB = [
-        <-0.201110, 0.150000, -0.925000>, <0.000000, 0.000000, 180.000000>,
+        <-0.201110, 0.150000, -0.935000>, <0.000000, 0.000000, 180.000000>,
         <-0.201110, 0.149990, -1.015860>, <0.000000, 0.000000, 180.000000>,
         <-0.301110, 0.149990, -1.065860>, <-9.000000, 0.000000, 180.000000>,
         <-0.401110, 0.149990, -1.103890>, <-32.000000, 0.000000, 180.000000>,
@@ -82,7 +90,7 @@ integer GI_Dir = 1; // values:  1 open(ing) // -1 close(ing)
 
 list GL_Sound_KV = []; // stores event frame + sound uuid/name. set by notecard load
 
-
+integer GI_DB_Chan = -1191;
 
 
 
@@ -111,7 +119,9 @@ map() {
 }
 
 // perform open/close function
-integer run() {
+integer run() {//GV_Ref_Scale
+    vector v = llList2Vector( llGetLinkPrimitiveParams( LINK_ROOT, [PRIM_SIZE] ), 0 );
+    float scale = v.z / GV_Ref_Scale;
     integer index = GI_Index;
     
     if( GI_Dir < 1 ) { // is opening
@@ -151,12 +161,12 @@ integer run() {
     // passing whole lists needs to be replaced with passing in needed data
     // do step handling before the loop and just dump all the needed info into doStep
     for( i=1; i<=num; ++i ) {
-        frame( GI_Link_LT, GL_Frames_LT, index, i, GI_Dir );
-        frame( GI_Link_RT, GL_Frames_RT, index, i, GI_Dir );
-        frame( GI_Link_L,  GL_Frames_L,  index, i, GI_Dir );
-        frame( GI_Link_R,  GL_Frames_R,  index, i, GI_Dir );
-        frame( GI_Link_LB, GL_Frames_LB, index, i, GI_Dir );
-        frame( GI_Link_RB, GL_Frames_RB, index, i, GI_Dir );
+        frame( GI_Link_LT, GL_Frames_LT, index, i, GI_Dir, scale );
+        frame( GI_Link_RT, GL_Frames_RT, index, i, GI_Dir, scale );
+        frame( GI_Link_L,  GL_Frames_L,  index, i, GI_Dir, scale );
+        frame( GI_Link_R,  GL_Frames_R,  index, i, GI_Dir, scale );
+        frame( GI_Link_LB, GL_Frames_LB, index, i, GI_Dir, scale );
+        frame( GI_Link_RB, GL_Frames_RB, index, i, GI_Dir, scale );
         llSleep( 0.1 );
     }
     return 1;
@@ -177,8 +187,8 @@ soundEvent( integer ref ) {
     llTriggerSound( (key)sound, 1 );
 }
 
-// prep the frame for application. probably best to not pass in lists... uses a lot of memory since lsl doesnt have pointers
-frame( integer link, list data, integer step, integer frame, integer dir ) {
+// prep the frame for application. // if only lsl supported pointers
+frame( integer link, list data, integer step, integer frame, integer dir, float scale ) {
     vector p1 = llList2Vector( data, step );
     vector r1 = llList2Vector( data, step+1 );
     vector p2 = llList2Vector( data, step+GI_Frame_Data_Length );
@@ -186,9 +196,9 @@ frame( integer link, list data, integer step, integer frame, integer dir ) {
     vector pc = ((p2-p1)/10) * frame;
     vector rc = ((r2-r1)/10) * frame;
     if( dir >= 1 ) {
-        doStep( link, p1+pc, r1+rc );
+        doStep( link, (p1+pc)*scale, r1+rc );
     } else {
-        doStep( link, p2-pc, r2-rc );
+        doStep( link, (p2-pc)*scale, r2-rc );
     }
 }
 
@@ -199,7 +209,6 @@ doStep( integer link, vector pos, vector rot ) {
             PRIM_ROT_LOCAL, llEuler2Rot( rot * DEG_TO_RAD )
         ] );
 }
-
 
 // add/replace sounds in frame event list
 addSound( integer ref, string sound ) {
@@ -221,17 +230,39 @@ addSound( integer ref, string sound ) {
 }
 
 
+openPod() {
+    llMessageLinked( LINK_THIS, 100, "Opening", "PodState" );
+    GI_Dir = 1;
+    integer hold = TRUE;
+    for( ;hold; ) {
+        hold = run();
+    }
+}
+
+closePod() {
+    llMessageLinked( LINK_THIS, 100, "Closing", "PodState" );
+    GI_Dir = -1;
+    integer hold = TRUE;
+    for( ;hold; ) {
+        hold = run();
+    }
+}
 
 
 
 
 
+
+/*
+*   START OF STATES
+*   Because it is easier than regularly adjusting spacing
+*/
 
 
 default {
     state_entry() {
         safeLoad();
-        llWhisper( 0, "'"+ llGetScriptName() +"' Reset" );
+        llWhisper( GI_DB_Chan, "'"+ llGetScriptName() +"' Reset" );
         map();
     }
 
@@ -239,19 +270,9 @@ default {
         if( num == 120 ) {
             if( id == "OpenPod" ) {
                 if( msg == "1" ) {
-                    llMessageLinked( LINK_THIS, 100, "Opening", "PodState" );
-                    GI_Dir = 1;
-                    integer hold = TRUE;
-                    for( ;hold; ) {
-                        hold = run();
-                    }
+                    openPod();
                 } else {
-                    GI_Dir = -1;
-                    llMessageLinked( LINK_THIS, 100, "Closing", "PodState" );
-                    integer hold = TRUE;
-                    for( ;hold; ) {
-                        hold = run();
-                    }
+                    closePod();
                 }
             }
         } else if( num == 200 ) {

@@ -6,9 +6,17 @@
 // 202001041738
 // 202001051745
 // 202001052125
+// 202001071140 // added recapture feature
+// 202001071751 // handled auto scaling
+// 202001071915 // fixed recapture ignoring safeword
+
 
 #include <oups.lsl> // debugging
-string GS_Script_Name = "CAT ACS Interface"; // debugging
+string GS_Script_Name = "CAT Pod ACS"; // debugging
+
+
+
+
 
 
 
@@ -219,11 +227,15 @@ parsACSAdv( string msg ) {
 
 
 
+/*
+*   START OF STATES
+*   Because it is easier than regularly adjusting spacing
+*/
 
 default {
     state_entry() {
         safeLoad();
-        llWhisper( 0, "'"+ llGetScriptName() +"' Reset" );
+        llWhisper( GI_DB_Chan, "'"+ llGetScriptName() +"' Reset" );
         llListen( 360, "", "", "" );
         ACSPing( GK_User );
     }
