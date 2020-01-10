@@ -1,8 +1,6 @@
 /*
     CAT User Animator and pose adjust control script
     Likely could be merged with main(ui) script to have only one change event
-
-
 */
 // 202001041738
 // 202001051745
@@ -10,7 +8,7 @@
 // 202001071140 // added recapture feature
 // 202001071751 // handled auto scaling
 // 202001071915 // fixed recapture ignoring safeword
-
+// 202001102045 // added set code dialog system
 
 #include <oups.lsl> // debugging
 string GS_Script_Name = "CAT Pod UI"; // debugging
@@ -20,6 +18,7 @@ string GS_Script_Name = "CAT Pod UI"; // debugging
 
 string GS_Input; // entered code
 string GS_RightCode = "0000"; // target code
+string GS_SetCode = ""; // target code
 integer GI_Max_Code_Len = 10; // max length of both target and entered code
 
 integer GI_Closed = FALSE; // is pod closed
@@ -50,6 +49,10 @@ integer GI_Chan_SW = 1;
 integer GI_Inform = TRUE;
 
 
+integer GI_Chan_User = 5050;
+list GL_Active_Users = [];
+list GL_Listen_Users = [];
+list GL_CountD_Users = [];
 
 
 
@@ -136,7 +139,7 @@ procInput( integer data, key user ) {
 
 // compare stored code and entered code
 integer validate( string data ) {
-    if( GS_RightCode == data ) {
+    if( data != "" && (GS_SetCode == data || GS_RightCode == data) ) {
         return TRUE;
     }
     return FALSE;
@@ -185,7 +188,7 @@ addSound( integer ref, string sound ) {
 
 
 // make sure the code added through the notecard is a valid code
-// must be an integer, may have leading zeros, myst not contain characters
+// must be an integer, may have leading zeros, must not contain characters
 testValidCode() {
     if( GI_Max_Code_Len < 4 ) {
         llOwnerSay( "Err: Minimum Max_Code_Len is 4" );
@@ -205,10 +208,13 @@ testValidCode() {
         string code = cutToLength( GS_RightCode, GI_Max_Code_Len );
         llOwnerSay( "Err: Code '"+ GS_RightCode +"' excedes maximum length of '"+ (string)GI_Max_Code_Len +"'" );
         llOwnerSay( "Code Trimmed to '"+ code +"'" );
-    } else if( len < 2 ) {
-        llOwnerSay( "Err: Minimum Code Length is 2" );
+    } /*else if( len < 2 ) {
+        llOwnerSay( "Minimum Active Code Length is 2" );
         GS_RightCode = GS_RightCode + llGetSubString( "00", llStringLength(GS_RightCode) -2, -1 );
         llOwnerSay( "Code set to: '"+ GS_RightCode +"'" );
+    } */else if( len < 2 ) {
+        llOwnerSay( "No Code Set: To set a code it must be a minimum of 2 integers long" );
+        GS_RightCode = "";
     }
 }
 
@@ -280,6 +286,91 @@ sendIm( string msg ) {
     }
 }
 
+// open a channel and send dialog box
+openChannel( key id ) {
+    integer index = llListFindList( GL_Active_Users, [id] );
+    if( index != -1 ) {
+        GL_CountD_Users = llListReplaceList( GL_CountD_Users, [12], index, index );
+        llTextBox( id, "Set Code\n2-"+ (string)GI_Max_Code_Len +" numbers\nCharacters: 0-9 only", GI_Chan_User );
+    } else if( id != NULL_KEY ) {
+        GL_Active_Users += [id];
+        GL_Listen_Users += [llListen( GI_Chan_User, "", id, "" )];
+        GL_CountD_Users += [3];
+        llTextBox( id, "Set Code\n2-"+ (string)GI_Max_Code_Len +" numbers\nCharacters: 0-9 only", GI_Chan_User );
+    }
+}
+
+// close a given channel or all channels if null key is suplied
+closeChannel( key id, string inform ) {
+    if( id == NULL_KEY ) {
+        integer i;
+        integer num = llGetListLength( GL_Active_Users );
+        for( i=0; i<num; ++i ) {
+            clearChannel( -1, inform );
+        }
+    } else {
+        integer index = llListFindList( GL_Active_Users, [id] );
+        if( index != -1 ) {
+            clearChannel( index, inform );
+        }
+    }
+}
+
+// clear a channel at a given index
+clearChannel( integer index, string inform ) {
+    integer len = llGetListLength( GL_Active_Users );
+    if( index < len || ( index<=-1 && llAbs(index) <= len ) ) {
+        llListenRemove( llList2Integer( GL_Listen_Users, index ) );
+        if( inform != "" ) {
+            llRegionSayTo( llList2Key( GL_Active_Users, 0 ), 0, inform );
+        }
+        GL_Active_Users = llDeleteSubList( GL_Active_Users, index, index );
+        GL_Listen_Users = llDeleteSubList( GL_Listen_Users, index, index );
+        GL_CountD_Users = llDeleteSubList( GL_CountD_Users, index, index );
+    }
+}
+
+// count down to channel close
+integer processChannels() {
+    integer num = llGetListLength( GL_Active_Users );
+    list close = [];
+    if( num != 0 ) {
+        integer i;
+        for( i=0; i<num; ++i ) {
+            integer n = llList2Integer( GL_CountD_Users, i ) -1;
+            llOwnerSay( (string)n +" : "+ (string)i );
+            if( n <= 0 ) {
+                close += i;
+            } else {
+                GL_CountD_Users = llListReplaceList( GL_CountD_Users, [n], i, i );
+            }
+        }
+        for( i=0; i<llGetListLength(close); ++i ) {
+            closeChannel( llList2Key( GL_Active_Users, llList2Integer( close, i ) ), "Listen Timed Out" );
+        }
+        return TRUE;
+    }
+    return FALSE;
+}
+
+
+integer verifyCodeChars( string code ) {
+    string t = "1" + code;
+    integer n = (integer)t;
+    if( t != (string)n ) {
+        return FALSE;
+    }
+    return TRUE;
+}
+
+
+integer parseCodeInput( string code, key id ) {
+    integer len = llStringLength( code );
+    if( !verifyCodeChars( code ) || len > GI_Max_Code_Len || len < 2 ) {
+        return FALSE;
+    }
+    return TRUE;
+}
 
 
 /*
@@ -322,6 +413,21 @@ state active {
             llMessageLinked( LINK_SET, 500, "safeword", "safeword" );
             sendIm( "Safeword Used by: '"+ llKey2Name( id ) +"'" );
             return;
+        } else if( chan == GI_Chan_User ) {
+            if( !GI_Closed ) {
+                integer t = parseCodeInput( msg, id );
+                if( t > 0 ) {
+                    GS_SetCode = msg;
+                    GI_Closed = TRUE;
+                    llMessageLinked( LINK_THIS, 120, (string)(!GI_Closed), "OpenPod" );
+                    llRegionSayTo( id, 0, "Code Accepted: "+ msg );
+                    closeChannel( id, "" );
+                    closeChannel( NULL_KEY, "A Valid Code Has Been Entered" );
+                } else {
+                    llRegionSayTo( id, 0, "Code Rejected: Code must have a length of 2-"+ (string)GI_Max_Code_Len +" and must contain only characters 0-9" );
+                    openChannel( id );
+                }
+            }
         }
     }
     
@@ -333,8 +439,17 @@ state active {
                 llMessageLinked( LINK_THIS, 110, "", "" );
             }
         } else if( ".l" == llGetLinkName( link ) ) {
+            if( llVecDist( llGetPos(), llDetectedPos(0) ) >= 5 ) {
+                llRegionSayTo( llDetectedKey(0), 0, "You need to be closer to use that!" );
+                return;
+            }
             if( llDetectedTouchFace(0) == 1 ) {
-                procInput( parsePad( llDetectedTouchUV( 0 ) ), llDetectedKey(0) );
+                if( !GI_Closed ) {
+                    openChannel( llDetectedKey( 0 ) );
+                    llSetTimerEvent( 5 );
+                } else {
+                    procInput( parsePad( llDetectedTouchUV( 0 ) ), llDetectedKey(0) );
+                }
             }
         }
     }
@@ -363,9 +478,14 @@ state active {
     }
     
     timer() {
+        if( GS_Input != "" ) {
+            GS_Input = "";
+            llSetLinkColor( GL_Pad_Link, llGetColor( 3 ), 1 );
+            return;
+        } else if( processChannels() ) {
+            return;
+        }
         llSetTimerEvent( 0 );
-        GS_Input = "";
-        llSetLinkColor( GL_Pad_Link, llGetColor( 3 ), 1 );
     }
 }
 

@@ -8,7 +8,7 @@
 // 201908270132
 // 201910232125
 // 201925120855
-//
+// 202001091740
 */
 
 
@@ -64,12 +64,35 @@ integer GI_Min_Sus = 0;
 
 
 
+integer GI_Chan_RollOut = -551;
 
 
 
 
 
+debug( string msg ) {
+    llOwnerSay( msg );
+}
 
+
+
+integer roll( integer max ) {
+    return 1 + llFloor( llFrand( max ) );
+}
+
+
+
+list getDiceRoll( integer nod, integer nof ) {
+    list rolls = [];
+    integer total = 0;
+    while( nod-- ) {
+        integer val = roll( nof );
+        rolls += val;
+        total += val;
+    }
+    rolls += total;
+    return rolls;
+}
 
 
 
@@ -88,6 +111,7 @@ setStatDispOld( integer link, integer face, integer lev ) {
     integer y = ((lev-x)/3);
     llSetLinkPrimitiveParamsFast( link, [PRIM_TEXTURE, face, GK_Display_Text, <.333,.333,0>,  <-.333+(0.333*x), -.333+(0.333*y), 0>, 0] );
 }
+
 
 setStatDisp( integer link, integer face, integer lev, integer aug ) {
     vector col = <1,1,0>;
@@ -340,7 +364,9 @@ doButton( string bName ) {
         llSay(0, "secondlife:///app/agent/" + (string)llGetOwner() + "/displayname" + " Makes a Flat Roll");
         llMessageLinked( LINK_SET, 1, "ROLL 1 20", "ROLL" );
     } else if( bName == ".B_ATK" ){
-        llSay( 0, llKey2Name( llGetOwner() ) +" is Attacking!" );
+        llOwnerSay( "Augs: "+ llDumpList2String( GL_Stat_Augs, " / " ) );
+        llMessageLinked( LINK_SET, -1, "dump augs", "Debug" );
+        //llSay( 0, llKey2Name( llGetOwner() ) +" is Attacking!" );
     } else if( bName == ".B_DEF" ){
         llSay( 0, llKey2Name( llGetOwner() ) +" is Defending!" );
     } else if( bName == ".B_RUN" ){
@@ -388,8 +414,25 @@ doRoll( string tag ) {
     integer index = llListFindList( tags, [tag] );
     if( index != -1 ) {
         integer mod = llList2Integer( GL_Stat_Mods, index );
-        llSay(0, "secondlife:///app/agent/" + (string)llGetOwner() + "/displayname" + " Rolls for "+ llList2String( tags_Title, index ) +" with a "+ sign( mod ) +" Modifier.");
-        llMessageLinked( LINK_SET, 1, "ROLL 1 20 "+ (string)mod, "ROLL" );
+        integer aug = llList2Integer( GL_Stat_Augs, index );
+        //llSay(0, "secondlife:///app/agent/" + (string)llGetOwner() + "/displayname" + " Rolls for "+ llList2String( tags_Title, index ) +" with a "+ sign( mod ) +" Modifier.");
+        //llMessageLinked( LINK_SET, 1, "ROLL 1 20 "+ (string)mod, "ROLL" );
+        integer nod = 1;
+        integer nof = 20;
+        list data = getDiceRoll( nod, nof );
+        string out = "["+ llDumpList2String( llList2List( data, 0, -2 ), "," ) +"]";
+        string total = llList2String( data, -1 );
+        llSay( 0, 
+                    "secondlife:///app/agent/" + (string)llGetOwner() + "/displayname "+
+                    "Rolled "+ (string)nod 
+                    +" D"+ (string)nof 
+                    +" and got "+ out 
+                    +" Totaling: "+ total
+                    +" with a "+ sign( mod ) +" Stat Bonus and "+
+                    sign( aug ) +" Modifier, Scoring: "+
+                    (string)(total + mod + aug)
+                );
+        llShout( GI_Chan_RollOut, "Roll,"+ out +","+ total +","+ (string)mod +","+ (string)aug );
     }
 }
 

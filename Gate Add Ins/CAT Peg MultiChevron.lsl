@@ -2,7 +2,7 @@
     CAT Script!
 */
 integer FACE_1 = 1;
-integer FACE_2 = 1;
+//integer FACE_2 = 1;
 
 
 list GL_Chevrons = [];
@@ -42,8 +42,10 @@ map() {
 
 
 lightAll( integer on, vector col ) {
+    //vector col_lck = <127.0/256,148.0/255,1>;
+    vector col_lck = llList2Vector( llGetLinkPrimitiveParams( llList2Integer( GL_Lockers, 0 ), [PRIM_COLOR, 1] ), 0 ); // overwrite
     list data = getSettings( on, col );
-    list lock_d = getLockSettings( on, col );
+    list lock_d = getLockSettings( on, col_lck, TRUE );
     integer i;
     integer num = llGetListLength( GL_Chevrons );
     for( i=0; i<num; ++i ) {
@@ -55,8 +57,10 @@ lightAll( integer on, vector col ) {
 
 
 lightOne( integer on, integer index, vector col ) {
+    //vector col_lck = <127.0/256,148.0/255,1>;
+    vector col_lck = llList2Vector( llGetLinkPrimitiveParams( llList2Integer( GL_Lockers, 0 ), [PRIM_COLOR, 1] ), 0 ); // overwrite
     list data = getSettings( on, col );
-    list lock_d = getLockSettings( on, col );
+    list lock_d = getLockSettings( on, col_lck, FALSE );
     llSetLinkPrimitiveParamsFast( llList2Integer( GL_Chevrons, index ), data );
     llSetLinkPrimitiveParamsFast( llList2Integer( GL_Lockers, index ), lock_d );
     llSetLinkPrimitiveParamsFast( GI_Link_Locker, data );
@@ -67,8 +71,8 @@ list getSettings( integer on, vector col ) {
     integer fb = FALSE;
     float gl = 0;
     list data = [
-                PRIM_COLOR, FACE_1, col, 1.0, 
-                PRIM_COLOR, FACE_2, col, 1.0
+                PRIM_COLOR, FACE_1, col, 1.0
+                //PRIM_COLOR, FACE_2, col, 1.0
                 ];
     
     if( on >= 0  ) {
@@ -77,21 +81,24 @@ list getSettings( integer on, vector col ) {
     }
     data += [
                 PRIM_FULLBRIGHT, FACE_1, fb, 
-                PRIM_FULLBRIGHT, FACE_2, fb,
-                PRIM_GLOW, FACE_1, gl,
-                PRIM_GLOW, FACE_2, gl
+                //PRIM_FULLBRIGHT, FACE_2, fb,
+                PRIM_GLOW, FACE_1, gl
+                //PRIM_GLOW, FACE_2, gl
             ];
     return data;
 }
 
 
-list getLockSettings( integer on, vector col ) {
+list getLockSettings( integer on, vector col, integer all ) {
     float al = (on > 0);
+    if( all ) {
+        al = 0;
+    }
     integer fb = FALSE;
     float gl = 0;
     list data = [
-                PRIM_COLOR, ALL_SIDES, col, al, 
                 PRIM_COLOR, ALL_SIDES, col, al
+                //PRIM_COLOR, ALL_SIDES, col, al
                 ];
     
     if( on >= 0  ) {
@@ -100,9 +107,9 @@ list getLockSettings( integer on, vector col ) {
     }
     data += [
                 PRIM_FULLBRIGHT, ALL_SIDES, fb, 
-                PRIM_FULLBRIGHT, ALL_SIDES, fb,
-                PRIM_GLOW, ALL_SIDES, gl,
+                //PRIM_FULLBRIGHT, ALL_SIDES, fb,
                 PRIM_GLOW, ALL_SIDES, gl
+                //PRIM_GLOW, ALL_SIDES, gl
             ];
     return data;
 }
@@ -132,7 +139,6 @@ default {
             } else if ( abs > 0 && abs <= llGetListLength( GL_Chevrons ) ) {
                 vector col = (vector)((string)id);
                 lightOne( num, (abs-1), col );
-                
             }
         }
     }
