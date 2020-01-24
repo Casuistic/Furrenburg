@@ -8,8 +8,8 @@
 // 201912210620
 // 201912240651
 // 201925120855
-
-
+// 202001200633
+// 202001211801
 
 
 
@@ -281,7 +281,9 @@ string ranStr( integer length ) {
 
 default {
     state_entry() {
-        llWhisper( chan, "DIE" );
+        llSay( -1, "RESET" ); // do not remove this line as it fixes the llRegionSayTo lock up issue somehow...
+        key id = (key)llGetObjectDesc();
+        llRegionSayTo( id, chan, "DIE" );
         error( FALSE );
         //state respawn;
         
@@ -393,6 +395,7 @@ state ready {
     }
     
     state_entry() {
+        llWhisper( 0, "Ready" );
         GS_End_Flag = ranStr( 3 );
         GK_Subject = NULL_KEY;
     }
@@ -429,6 +432,7 @@ state spawn {
     object_rez( key id ) {
         llSleep( 1 ); // wait 1 second for initalisation
         GK_Rezzed = id;
+        llSetObjectDesc( id );
         state ready;
     }
 }

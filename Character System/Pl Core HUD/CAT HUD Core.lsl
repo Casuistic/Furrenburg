@@ -9,8 +9,16 @@
 // 201910232125
 // 201925120855
 // 202001091740
+// 202001210922
+// 202001242210 // pre saving before changing channel / lm handeling
 */
+#undef DEBUG
+#include <debug.lsl>
+#include <oups.lsl> // debugging
+string GS_Script_Name = "CAT HUD Core"; // debugging
 
+
+#include <LM Chan Ref.lsl> // link message chan ref
 
 
 integer gListener; // Identity of the listener associated with the dialog, so we can clean up when not needed
@@ -31,7 +39,7 @@ list GL_Stat_Augs = [
     0 // con
 ];
 
-
+integer GI_Stat_HP = 5;
 
 integer GI_Data_Prim = -1;
 
@@ -40,10 +48,13 @@ list GL_Stat_Disp; // script sets this
 
 integer GI_Inv_Disp = -1;
 
+integer GI_Cash_Disp = -1; // prim for displaying cash monies!!!
+
 // 0-8 tiled texture;
-key GK_Display_Text = "6a69e885-99a1-9f04-ee42-c2f160fb452c";
+key GK_Display_Text = "407341b2-03d3-8155-59da-921155be2c85";//"6a69e885-99a1-9f04-ee42-c2f160fb452c";
 key GK_Role_Icon = "85cd93de-8a05-7a05-b89f-33ecbab7b019";
 
+key GK_GB_Group = "3e895a38-75a3-c112-3f52-8b1451e97e25"; // FB group uuid
 
 integer GI_Conc_Chan = -55; // channel on which to chat to the balls
 
@@ -59,30 +70,34 @@ integer GI_Chan_B = -11; // open channel for hud to Stand Comm
 integer GI_Listen_B_Base = -200000; // set the minimum value
 integer GI_Listen_B_Range = 100000; // set the range of values
 
+integer GI_Chan_C = -33;
+integer GI_Listen_C = -1;
 
 integer GI_Min_Sus = 0;
-
-
 
 integer GI_Chan_RollOut = -551;
 
 
+key GK_Anim_Down = "down";
 
 
 
-debug( string msg ) {
-    llOwnerSay( msg );
-}
+
 
 
 
 integer roll( integer max ) {
+    debug( "roll() '"+ (string)max +"'" );
     return 1 + llFloor( llFrand( max ) );
 }
 
 
 
 list getDiceRoll( integer nod, integer nof ) {
+    llSetSoundQueueing(TRUE);
+    //llPreloadSound("cadca9a8-061d-070f-92ec-24f319d8ebe2");
+    //llPreloadSound("4acb00cf-d0bf-be65-d694-57e444994054");
+    debug( "getDiceRoll() '"+ (string)nod +"', '"+ (string)nof +"'" );
     list rolls = [];
     integer total = 0;
     while( nod-- ) {
@@ -91,6 +106,9 @@ list getDiceRoll( integer nod, integer nof ) {
         total += val;
     }
     rolls += total;
+    
+    llPlaySound("cadca9a8-061d-070f-92ec-24f319d8ebe2", 1.0);
+    llPlaySound("4acb00cf-d0bf-be65-d694-57e444994054", 1.0);
     return rolls;
 }
 
@@ -99,6 +117,7 @@ list getDiceRoll( integer nod, integer nof ) {
 
 // uuid to integer
 integer key2Chan ( key id, integer base, integer rng ) {
+    debug( "key2Chan() '"+ (string)id +"', '"+ (string)base +"', '"+ (string)rng +"'" );
     integer sine = 1;
     if( base < 0 ) { sine = -1; }
     return (base+(sine*(((integer)("0x"+(string)id)&0x7FFFFFFF)%rng)));
@@ -107,36 +126,66 @@ integer key2Chan ( key id, integer base, integer rng ) {
 
 // set a display prims texture offset
 setStatDispOld( integer link, integer face, integer lev ) {
+    debug( "setStatDispOld() '"+ (string)link +"', '"+ (string)face +"', '"+ (string)lev +"'" );
     integer x = lev % 3;
     integer y = ((lev-x)/3);
     llSetLinkPrimitiveParamsFast( link, [PRIM_TEXTURE, face, GK_Display_Text, <.333,.333,0>,  <-.333+(0.333*x), -.333+(0.333*y), 0>, 0] );
 }
 
 
-setStatDisp( integer link, integer face, integer lev, integer aug ) {
-    vector col = <1,1,0>;
+
+
+setStatDisp( integer link, integer lev, integer aug ) {
+    debug( "setStatDisp() '"+ (string)link +"', '"+ (string)lev +"', '"+ (string)aug +"'" );
+    
+    integer score = lev+aug;
+    integer size = llAbs(score);
+    
+    vector col = <1,1,1>;
     if( aug < 0 ) {
-        col = <1,0,0>;
+        col = <1,1,0>;
     } else if( aug > 0 ) {
         col = <0,1,0>;
     }
-    integer x = lev % 3;
-    integer y = ((lev-x)/3);
+    
+    float steps = 1.0 / 4;
+
+    integer one = size%10;
+    integer ten = (size-one)/10;
+    
+    integer sign = 15;
+    if( score < 0 ) {
+        sign = 10;
+    } else {
+        sign = 11;
+    }
+
+    vector start = <-0.37501, 0.37501, 0>;
     llSetLinkPrimitiveParamsFast( link, [
-            PRIM_TEXTURE, face, GK_Display_Text, <.333,.333,0>,  <-.333+(0.333*x), -.333+(0.333*y), 0>, 0,
-            PRIM_COLOR, face, col, 1
+            PRIM_TEXTURE, 0, GK_Display_Text, <steps,steps,0>,  valToOffset( start, steps, sign ), 0,
+            PRIM_TEXTURE, 1, GK_Display_Text, <steps,steps,0>,  valToOffset( start, steps, ten ), 0,
+            PRIM_TEXTURE, 2, GK_Display_Text, <steps,steps,0>,  valToOffset( start, steps, one ), 0,
+            PRIM_COLOR, ALL_SIDES, col, 1
         ] );
 }
 
+
+vector valToOffset( vector start, float step, integer val ) {
+    integer val_x = val % 4;
+    integer val_y = ((val_x-val) / 4);
+    return start + <step*val_x, step*val_y, 0>;
+}
 
 
 // SET UP POINT
 // CALLED ONCE ON SETUP OR OWNER CHANGE
 // NEEDS TO MAP THE LINKS, LOAD DATA, ENABLE LISTENS, THEN DISPLAY STATS
 setup() {
+    debug( "setup()" );
     llListenRemove( GI_Listen_A );
     llListenRemove( GI_Listen_B );
-    
+    llListenRemove( GI_Listen_C );
+
     map(); // map linked set
     load(); // load stored data
     
@@ -147,11 +196,15 @@ setup() {
     GI_Chan_B = key2Chan( llGetOwner(), GI_Listen_B_Base, GI_Listen_B_Range );
     GI_Listen_A = llListen( GI_Chan_A, "", "", "Ping" );
     GI_Listen_B = llListen( GI_Chan_B, "", "", "OpenChan" );
+    GI_Listen_C = llListen( GI_Chan_C, "", "", "" );
+
+    updateOverhead();
 }
 
 
 //STA;2,8,4,6,0,f49dbcd0-77e5-6700-9c31-2a057f00fcca;QpruAF6M8x0g6ZZ
 integer load() {
+    debug( "load()" );
     if( GI_Data_Prim != -1 ) {
         list data = llParseString2List( llList2String( llGetLinkPrimitiveParams( GI_Data_Prim, [PRIM_DESC]), 0 ), [";"], [] );
         if( llGetListLength( data ) == 3 && llList2String( data, 0 ) == "STA" ) {
@@ -183,6 +236,7 @@ integer load() {
 
 //STA;2,8,4,6,0,f49dbcd0-77e5-6700-9c31-2a057f00fcca;QpruAF6M8x0g6ZZ
 save() {
+    debug( "save()" );
     if( GI_Data_Prim != -1 ) {
         string text = llDumpList2String( GL_Stat_Mods,"," ) +","+ (string)GK_Role_Icon;
         llSetLinkPrimitiveParamsFast( GI_Data_Prim, [PRIM_TEXTURE, ALL_SIDES, GK_Role_Icon, <1,1,0>, <0,0,0>, 0 ] );
@@ -194,6 +248,7 @@ save() {
 // Erase stored data
 // used on owner change
 wipe() {
+    debug( "wipe()" );
     if( GI_Data_Prim != -1 ) {
         list stats = [0,0,0,0,0];
         string text = llDumpList2String( stats,"," ) +",85cd93de-8a05-7a05-b89f-33ecbab7b019";
@@ -204,6 +259,7 @@ wipe() {
 
 string GS_Salt = "CATS_WIN!"; // salt for save data
 string encode( key id, string text ) {
+    debug( "encode() '"+ (string)id +"', '"+ text +"'" );
     string text = llXorBase64( llStringToBase64( GS_Salt + text ), llIntegerToBase64( key2Chan(id,1000000,1000000) ) );
     if( llStringLength( text ) < 15 ) {
         text += llGetSubString( "qwertyuiopasdfg", 0, 14-llStringLength(text) );
@@ -215,12 +271,14 @@ string encode( key id, string text ) {
 
 
 integer verify( key id, string str1, string str2 ) {
+    debug( "verify() '"+ (string)id +"', '"+ str1 +"', '"+ str2 +"'" );
     return( encode( id, str1 ) == str2 );
     //return TRUE;
 }
 
 
 openChan( key id ) {
+    debug( "openChan() '"+ (string)id +"'" );
     llListenRemove( GI_Listen_B2 );
     GI_Listen_B2 = llListen( GI_Chan_B, "", id, "" );
     llSetTimerEvent( 60 );
@@ -228,21 +286,37 @@ openChan( key id ) {
 
 
 closeChan() {
+    debug( "closeChan()" );
     llListenRemove( GI_Listen_B2 );
 }
 
 
-integer parseSafeCmd( integer chan, string name, key id, string msg ) {
+integer parseAltCmd( integer chan, string name, key id, string msg ) {
+    debug( "parseAltCmd() '"+ (string)chan +"', '"+ name +"', '"+ (string)id +"', '"+ msg +"'" );
     string cmd = llToUpper( msg );
-    llOwnerSay( "Safe Cmd: "+ cmd );
+    llOwnerSay( "Alt Cmd: "+ name +": "+ msg +" on "+ (string)chan );
+    if( cmd == "XXX" ) {
+        return TRUE;
+    }
+    llOwnerSay( "Unknown Alt Cmd: "+ cmd );
+    return FALSE;
+}
+
+/*
+*/
+integer parseSafeCmd( integer chan, string name, key id, string msg ) {
+    debug( "parseSafeCmd() '"+ (string)chan +"', '"+ name +"', '"+ (string)id +"', '"+ msg +"'" );
+    string cmd = llToUpper( msg );
     if( cmd == "PING" ) {
         updateOverhead();
     }
     return FALSE;
 }
 
-
-integer parseAltCmd( integer chan, string name, key id, string msg ) {
+/*
+*/
+integer parseStandCmd( integer chan, string name, key id, string msg ) {
+    debug( "parseStandCmd() '"+ (string)chan +"', '"+ name +"', '"+ (string)id +"', '"+ msg +"'" );
     string cmd = llToUpper( msg );
     if( cmd == "OPENCHAN" ) {
         openChan( id );
@@ -265,12 +339,76 @@ integer parseAltCmd( integer chan, string name, key id, string msg ) {
             }
         }
     }
-    llOwnerSay( "Unknown Alt Cmd: "+ cmd );
+    llOwnerSay( "Unknown Stand Cmd: "+ cmd );
     return FALSE;
 }
 
+/*
+*/
+integer parseExternalCmd( integer chan, string name, key id, string msg ) {
+    debug( "parseExternalCmd() '"+ (string)chan +"', '"+ name +"', '"+ (string)id +"', '"+ msg +"'" );
+    string cmd = llToUpper( msg );
+    //llOwnerSay( "External Cmd: "+ cmd );
+    list data = llParseString2List( cmd, [":"], [] );
+    string tag = llList2String( data, 0 );
+    string end = llList2String( data, -1 );
+    if( tag == "DOROLL" ) {
+        list stats = ["STR", "CHA", "DEX", "INT", "CON"];
+        integer stat = (integer)llList2String( data, 1 );
+        llRegionSayTo( id, chan, "ROLL:"+ (string)doRoll( llList2String( stats, stat ), TRUE ) +":"+ end );
+    } else if( tag == "HIT" ) {
+        integer adj = llAbs( (integer)llList2String( data, 1 ) );
+        adjHitPoints( -adj );
+    }
+    return FALSE;
+}
 
+/*  ADJUST HP UP OR DOWN */
+adjHitPoints( integer adj ) {
+    debug( "adjhitPoints() '"+ (string)adj +"'" );
+    setHitPoints( GI_Stat_HP + adj );
+}
+
+/*  SET HP TO A GIVEN VALUE */
+setHitPoints( integer hp ) {
+    debug( "setHitPoints() '"+ (string)hp +"'" );
+    if( hp < 0 ) {
+        hp = 0;
+    } else if( hp > 5 ) {
+        hp = 5;
+    }
+    GI_Stat_HP = hp;
+    llRegionSayTo( llGetOwner(), GI_Chan_A, "SET HP "+ (string)GI_Stat_HP );
+    if( hp == 0 ) {
+        zeroHitPoints();
+    }
+}
+
+setMinSus( integer lev ) {
+    debug( "setMinSus() '"+ (string)lev +"'" );
+    if( lev < 0 ) {
+        lev = 0;
+    }
+    GI_Min_Sus = lev;
+    llRegionSayTo( llGetOwner(), GI_Chan_A, "SET MinSus "+ (string)lev );
+}
+
+/*  HP HAS REACHED ZERO */
+zeroHitPoints() {
+    debug( "zeroHitPoints()" );
+    if( llGetOwner() == "91ac2b46-6869-48f3-bc06-1c0df87cc6d6" ) {
+        llSay( 0, llKey2Name( llGetOwner() ) +" goes down like the Bitch he is!" );
+    } else {
+        llSay( 0, llKey2Name( llGetOwner() ) +" goes down!" );
+    }
+    llMessageLinked( LINK_THIS, 700, "Down", "CONDITION" );
+}
+
+
+/*
+*/
 integer setStats( list tokens ) {
+    debug( "setStats() ['"+ llDumpList2String( tokens, "', '" ) +"']" );
     // example: "str;2,int;6,dex;4,con;0,cha;8";
     if( llGetListLength( tokens ) == 5 ) {
         tokens = llListSort( tokens, 1, FALSE );
@@ -298,6 +436,7 @@ integer setStats( list tokens ) {
 
 
 integer setRole( list tokens ) {
+    debug( "setRole() ['"+ llDumpList2String( tokens, "', '" ) +"']" );
     llOwnerSay( "Role Updated" );
     GK_Role_Icon = (key)llList2String( tokens, 0 );
     updateStats();
@@ -309,18 +448,22 @@ integer setRole( list tokens ) {
 
 // map prims and find display prims
 map() {
+    debug( "map()" );
     integer i;
     integer num = llGetNumberOfPrims();
     list data =[];
+    
     for( i=1;i<=num;++i ) {
         string cmd = llToUpper(llGetLinkName(i));
         if( cmd == ".D_STAT" ) { // find all the stat display prims
             data += i; // log stat display prims
-            setStatDisp( i, 1, 0, 0 ); // set zro value
+            setStatDisp( i, 0, 0 ); // set zro value
         } else if( cmd == ".DATA_01" ) {
             GI_Data_Prim = i;
         } else if( cmd == ".T_INV" ) {
             GI_Inv_Disp = i;
+        } else if( cmd == ".V_CASH" ) { // find all the stat display prims
+            GI_Cash_Disp = i;
         }
     }
     GL_Stat_Disp = data; // preserve stat prims in global list
@@ -329,6 +472,7 @@ map() {
 
 // update stat display prims
 updateStats() {
+    debug( "updateStats()" );
     integer i;
     integer num = llGetListLength(GL_Stat_Disp);
     for( i=0; i<num; ++i ) {
@@ -336,33 +480,37 @@ updateStats() {
         // GL_Stat_Mods = str cha dex int con
         string desc = llToUpper( llList2String(llGetLinkPrimitiveParams(link,[PRIM_DESC]),0) );
         if( desc == "STR" ) {
-            setStatDisp( link, 1, llList2Integer( GL_Stat_Mods, 0 ), llList2Integer( GL_Stat_Augs, 0 ) );
+            setStatDisp( link, llList2Integer( GL_Stat_Mods, 0 ), llList2Integer( GL_Stat_Augs, 0 ) );
         } else if( desc == "CHA" ) {
-            setStatDisp( link, 1, llList2Integer( GL_Stat_Mods, 1 ), llList2Integer( GL_Stat_Augs, 1 ) );
+            setStatDisp( link, llList2Integer( GL_Stat_Mods, 1 ), llList2Integer( GL_Stat_Augs, 1 ) );
         } else if( desc == "DEX" ) {
-            setStatDisp( link, 1, llList2Integer( GL_Stat_Mods, 2 ), llList2Integer( GL_Stat_Augs, 2 ) );
+            setStatDisp( link, llList2Integer( GL_Stat_Mods, 2 ), llList2Integer( GL_Stat_Augs, 2 ) );
         } else if( desc == "INT" ) {
-            setStatDisp( link, 1, llList2Integer( GL_Stat_Mods, 3 ), llList2Integer( GL_Stat_Augs, 3 ) );
+            setStatDisp( link, llList2Integer( GL_Stat_Mods, 3 ), llList2Integer( GL_Stat_Augs, 3 ) );
         } else if( desc == "CON" ) {
-            setStatDisp( link, 1, llList2Integer( GL_Stat_Mods, 4 ), llList2Integer( GL_Stat_Augs, 4 ) );
+            setStatDisp( link, llList2Integer( GL_Stat_Mods, 4 ), llList2Integer( GL_Stat_Augs, 4 ) );
         } else { // unknown stat?
-            setStatDisp( link, 1, 0, 0 );
+            setStatDisp( link, 0, 0 );
         }
     }
 }
 
 
 updateOverhead() {
+    debug( "updateOverhead()" );
     llRegionSayTo( llGetOwner(), GI_Chan_A, "ROL "+ (string)GK_Role_Icon );
-    doSetMinSus( GI_Min_Sus );
+    llRegionSayTo( llGetOwner(), GI_Chan_A, "SET HP "+ (string)GI_Stat_HP );
+    llRegionSayTo( llGetOwner(), GI_Chan_A, "SET MinSus "+ (string)GI_Min_Sus );
 }
 
 
 // find clicked basic button
 doButton( string bName ) {
+    debug( "dpButton() '"+ bName +"'" );
     if( bName == ".B_ROL" ) {
-        llSay(0, "secondlife:///app/agent/" + (string)llGetOwner() + "/displayname" + " Makes a Flat Roll");
-        llMessageLinked( LINK_SET, 1, "ROLL 1 20", "ROLL" );
+        //llSay(0, "secondlife:///app/agent/" + (string)llGetOwner() + "/displayname" + " Makes a Flat Roll");
+        //llMessageLinked( LINK_SET, 1, "ROLL 1 20", "ROLL" );
+        doRoll( "", FALSE );
     } else if( bName == ".B_ATK" ){
         llOwnerSay( "Augs: "+ llDumpList2String( GL_Stat_Augs, " / " ) );
         llMessageLinked( LINK_SET, -1, "dump augs", "Debug" );
@@ -387,6 +535,7 @@ doButton( string bName ) {
 
 // find clicked incrament button
 doInc( string bName ) {
+    debug( "doInc() '"+ bName +"'" );
     if( bName == ".I_INC_HP" ) {
         llRegionSayTo( llGetOwner(), GI_Chan_A, "INC HP 1" );
     } else if( bName == ".I_DEC_HP" ){
@@ -398,21 +547,22 @@ doInc( string bName ) {
     }
 }
 
-doSetMinSus( integer sLev ) {
-    llRegionSayTo( llGetOwner(), GI_Chan_A, "SET MinSus "+ (string)sLev );
-}
-
+/*
+*/
 doInv( integer link, integer face ) {
+    debug( "parseTouch() '"+ (string)link +"' '"+ (string)face +"'" );
     llMessageLinked( LINK_SET, 5, "DI:"+ (string)link +":"+ (string)face, "INV_SYS" );
 }
 
 
 // do a dice roll
-doRoll( string tag ) {
+integer doRoll( string tag, integer quiet ) {
+    debug( "dpRoll() '"+ tag +"' '"+ (string)quiet +"'" );
     list tags = ["STR", "CHA", "DEX", "INT", "CON"];
     list tags_Title = ["Strength", "Charm", "Dexterity", "Intelligence", "Constitution"];
     integer index = llListFindList( tags, [tag] );
     if( index != -1 ) {
+        llMessageLinked( LINK_ALL_CHILDREN, 1000, "cadca9a8-061d-070f-92ec-24f319d8ebe2,4acb00cf-d0bf-be65-d694-57e444994054", "SOUND" );
         integer mod = llList2Integer( GL_Stat_Mods, index );
         integer aug = llList2Integer( GL_Stat_Augs, index );
         //llSay(0, "secondlife:///app/agent/" + (string)llGetOwner() + "/displayname" + " Rolls for "+ llList2String( tags_Title, index ) +" with a "+ sign( mod ) +" Modifier.");
@@ -421,24 +571,46 @@ doRoll( string tag ) {
         integer nof = 20;
         list data = getDiceRoll( nod, nof );
         string out = "["+ llDumpList2String( llList2List( data, 0, -2 ), "," ) +"]";
-        string total = llList2String( data, -1 );
-        llSay( 0, 
+        integer total = llList2Integer( data, -1 );
+        if( !quiet ) {
+            llSay( 0, 
                     "secondlife:///app/agent/" + (string)llGetOwner() + "/displayname "+
-                    "Rolled "+ (string)nod 
+                    "Rolled "+ llList2String( tags_Title, index ) +" on "+ (string)nod 
                     +" D"+ (string)nof 
                     +" and got "+ out 
-                    +" Totaling: "+ total
+                    +" Totaling: "+ (string)total
                     +" with a "+ sign( mod ) +" Stat Bonus and "+
                     sign( aug ) +" Modifier, Scoring: "+
                     (string)(total + mod + aug)
                 );
-        llShout( GI_Chan_RollOut, "Roll,"+ out +","+ total +","+ (string)mod +","+ (string)aug );
+        }
+        llShout( GI_Chan_RollOut, "Roll,"+ out +","+ (string)total +","+ (string)mod +","+ (string)aug );
+        return (total + mod + aug);
+    } else {
+        llMessageLinked( LINK_ALL_CHILDREN, 1000, "cadca9a8-061d-070f-92ec-24f319d8ebe2,4acb00cf-d0bf-be65-d694-57e444994054", "SOUND" );
+        integer nod = 1;
+        integer nof = 20;
+        list data = getDiceRoll( nod, nof );
+        string out = "["+ llDumpList2String( llList2List( data, 0, -2 ), "," ) +"]";
+        integer total = llList2Integer( data, -1 );
+        if( !quiet ) {
+            llSay( 0, 
+                    "secondlife:///app/agent/" + (string)llGetOwner() + "/displayname "
+                    +"Made a Flat Roll "
+                    +" D"+ (string)nof 
+                    +" and got "+ out 
+                    +" Totaling: "+ (string)total
+                );
+        }
+        llShout( GI_Chan_RollOut, "Roll,"+ out +","+ (string)total );
+        return (total);
     }
 }
 
 
 // add a sign to an int and return it as a string
 string sign( integer val ) {
+    debug( "sign() '"+ (string)val +"'" );
     if( val >= 0 ) {
         return "+"+ (string)val;
     }
@@ -449,6 +621,7 @@ string sign( integer val ) {
 integer GI_Out = FALSE;
 // Open/Close the display
 openDisplay( integer open ) {
+    debug( "openDisplay() '"+ (string)open +"'" );
     llMessageLinked( LINK_SET, 5, "DC:OPEN:"+ (string)open, "INV_SYS" );
 }
 
@@ -459,6 +632,7 @@ openDisplay( integer open ) {
 
 
 integer parseStatAdjust( string msg, string tag ) {
+    debug( "parseStatAdjust() '"+ msg +"' '"+ tag +"'" );
     if( tag == "STAT_ADJ" ) {
         list data = llParseString2List( msg, [","], [] );
         if( llGetListLength( data ) == 5 ) {
@@ -476,65 +650,174 @@ integer parseStatAdjust( string msg, string tag ) {
 }
 
 
+parseTouch( integer link, integer face ) {
+    debug( "parseTouch() '"+ (string)link +"'" );
+    string pressed = llGetLinkName( link );
+    string test = llToUpper( pressed );
+    string ct = llGetSubString( test, 0,1 );
+    if( ct == ".B") {
+        if( test == ".B_DIE" ) {
+            float f = 0.4;
+            float l = f/2;
+            vector mod = <l-llFrand(f),l-llFrand(f),l-llFrand(f)>;
+            mod = mod / (llVecMag( mod )*2);
+            llSetLinkPrimitiveParams( link, [PRIM_OMEGA, mod*llGetLocalRot(),PI,1.0]);
+            test = ".B_ROL";
+        }
+        doButton( test );
+    } else if( ct == ".I" ) {
+        doInc( test );
+    } else if( ct == ".D" ) {
+        doRoll( llToUpper( llList2String(llGetLinkPrimitiveParams(link,[PRIM_DESC]),0) ), FALSE );
+    } else if( ct == ".T" ) {
+        if( test == ".T_INV" ) {
+            doInv( link, face );
+        }
+    }
+}
 
+
+
+fullReset() {
+    debug( "fullReset()" );
+    llOwnerSay( "Performing Full Reset!" );
+    string me = llGetScriptName();
+    integer i;
+    integer num = llGetInventoryNumber( INVENTORY_SCRIPT );
+    for( i=0; i<num; ++i ) {
+        string name = llGetInventoryName( INVENTORY_SCRIPT, i );
+        if( name != me ) {
+            llResetOtherScript( name );
+        }
+    }
+}
+
+
+
+adjustCash( integer val ) {
+    setCash( GI_Cash_Disp, GO_Cash_On_Hand + val );
+}
+
+integer GO_Cash_On_Hand = 0;
+
+setCash( integer link, integer val ) {
+    GO_Cash_On_Hand = val;
+    vector col = <1,1,1>;
+    if( val < 0 ) {
+        col = <1,0,0>;
+        val = llAbs( val );
+    }
+    float steps = 1.0 / 4;
+    vector start = <-0.37501, 0.37501, 0>;
+    
+    integer end = 0;
+    
+    if( val > 999999999 ) {
+        end = 13;
+        val = val / 1000000;
+    } else if( val > 9999999 ) {
+        end = 12;
+        val = val / 1000;
+    }
+    
+    string v = (string)val;
+    integer p = llStringLength( v );
+    
+    integer i;
+    integer num = llGetLinkNumberOfSides( link );
+    p = num - (1+p);
+    if( end != 0 ) {
+        p-=1;
+    }
+    list data = [];
+    for( i=0; i<num; ++i ) {
+        if( i < p ) {
+            data += [PRIM_TEXTURE, i, GK_Display_Text, <steps,steps,0>,  valToOffset( start, steps, 15 ), 0];
+        } else if( i==p ) {
+            data += [PRIM_TEXTURE, i, GK_Display_Text, <steps,steps,0>,  valToOffset( start, steps, 14 ), 0];
+        } else if( end != 0 && i==(num-1) ) {
+            data += [PRIM_TEXTURE, i, GK_Display_Text, <steps,steps,0>,  valToOffset( start, steps, end ), 0];
+        } else {
+            integer m = p+1;
+            integer e = (integer)llGetSubString( v, i-m, i-m );
+            data += [PRIM_TEXTURE, i, GK_Display_Text, <steps,steps,0>,  valToOffset( start, steps, e ), 0];
+        }
+    }
+    data += [PRIM_COLOR, ALL_SIDES, col, 1];
+    llSetLinkPrimitiveParamsFast( link, data );
+}
 
 
 
 default {
     state_entry() {
+        debug( "SE State Entry" );
+        safeLoad();
         llWhisper( 0, "Initializing" );
         llMessageLinked( LINK_SET, 5, "RESET", "CAT_RESET" );
         setup();
-        updateOverhead();
         llOwnerSay( "Core Ready!" );
+        setCash( GI_Cash_Disp, 500 );
+        //fullReset();
     }
     
     
     attach( key id ) {
+        debug( "AT Attach" );
         if( id != NULL_KEY ) {
             llWhisper( 0, "Initializing" );
             setup();
-            updateOverhead();
             llOwnerSay( "Core Ready!" );
         }
     }
     
     
     touch_start( integer num ) {
+        debug( "TS Touch" );
         integer i;
         for( i=0;i<num;++i ) {
             if( llDetectedKey(i) == llGetOwner() ) {
-                integer link = llDetectedLinkNumber(i);
-                string pressed = llGetLinkName( link );
-                string test = llToUpper( pressed );
-                string ct = llGetSubString( test, 0,1 );
-                if( ct == ".B") {
-                    doButton( test );
-                } else if( ct == ".I" ) {
-                    doInc( test );
-                } else if( ct == ".D" ) {
-                    doRoll( llToUpper( llList2String(llGetLinkPrimitiveParams(llDetectedLinkNumber(i),[PRIM_DESC]),0) ) );
-                } else if( ct == ".T" ) {
-                    if( test == ".T_INV" ) {
-                        integer face = llDetectedTouchFace( i );
-                        doInv( link, face );
-                    }
-                }
+                parseTouch( llDetectedLinkNumber(i), llDetectedTouchFace( i ) );
             }
         }
     }
     
     
     listen( integer chan, string name, key id, string msg ) {
-        llOwnerSay( "Got: ["+ name +"] "+ msg );
-        if( llGetOwnerKey( id ) == llGetOwner() && parseSafeCmd( chan, name, id, msg ) ) {
-            return;
+        debug( "LI: "+ (string)chan +", "+ name +", "+ (string)id +", "+ msg );
+        if( chan == GI_Chan_A ) { // overhead hud
+            debug( "LI Chan_A" );
+            //llOwnerSay(  (string)chan +" A Got: ["+ name +"] "+ msg );
+            if( llGetOwnerKey( id ) == llGetOwner() ) { // same owner
+                parseSafeCmd( chan, name, id, msg );
+                return;
+            }
+        } else if( chan == GI_Chan_B ) { // character stand
+            debug( "LI Chan_B" );
+            //llOwnerSay(  (string)chan +" B Got: ["+ name +"] "+ msg );
+            key group = llList2Key( llGetObjectDetails( id, [OBJECT_GROUP] ), 0 );
+            if( group == GK_GB_Group ) { // FB group
+                parseStandCmd( chan, name, id, msg );
+                return;
+            }
+        } else if( chan == GI_Chan_C ) { // external elements // force roll and the like
+            debug( "LI Chan_C" );
+            //llOwnerSay(  (string)chan +" C Got: ["+ name +"] "+ msg );
+            key group = llList2Key( llGetObjectDetails( id, [OBJECT_GROUP] ), 0 );
+            if( group == GK_GB_Group ) { // FB group
+                parseExternalCmd( chan, name, id, msg );
+                return;
+            }
+        } else {
+            debug( "LI Chan_Unknown" );
+            llOwnerSay(  (string)chan +" ? Got: ["+ name +"] "+ msg );
         }
         parseAltCmd( chan, name, id, msg );
     }
     
     
     timer() {
+        debug( "TI" );
         llSetTimerEvent( 0 );
         closeChan();
     }
@@ -542,35 +825,41 @@ default {
     
     changed( integer flag ) {
         if( flag & CHANGED_OWNER ) {
+            debug( "CH Owner" );
             llWhisper( 0, "Owner Change Detected" );
             llWhisper( 0, "Wiping Saved Data" );
             wipe();
             llResetScript();
         } else if( flag & CHANGED_INVENTORY ) {
-            string me = llGetScriptName();
-            integer i;
-            integer num = llGetInventoryNumber( INVENTORY_SCRIPT );
-            for( i=0; i<num; ++i ) {
-                string name = llGetInventoryName( INVENTORY_SCRIPT, i );
-                if( name != me ) {
-                    llResetOtherScript( name );
-                }
-            }
+            //fullReset();
             llResetScript();
         }
     }
     
     
     link_message( integer src, integer num, string msg, key id ) {
-        //debug( (string)num +":"+ msg +":"+ (string)id );
-        if( num == 4 && id == "COR_SYS" ) {
-            list data = llParseString2List( msg, [":"], [] );
-            if( llList2String( data, 0 ) == "SS" && llGetListLength( data ) == 2 ) {
-                GI_Min_Sus = (integer)llList2String( data, 1 );
-                doSetMinSus( GI_Min_Sus );
+        debug( (string)num +":"+ msg +":"+ (string)id );
+        if( num == GI_LM_CORE_SUSTEM ) {
+            if( id == "COR_SYS" ) {
+                debug( "LM 01" );
+                list data = llParseString2List( msg, [":"], [] );
+                if( llList2String( data, 0 ) == "SS" && llGetListLength( data ) == 2 ) {
+                    setMinSus( (integer)llList2String( data, 1 ) );
+                }
             }
-        } else if( num == 555 ) {
+        } else if( num == GI_LM_DISPLAY_STATS ) {
+            debug( "LM 02" );
             parseStatAdjust( msg, (string)id );
+        } else if( num == GI_LM_DISPLAY_HP ) {
+            if( id == "HP_Adj" ) {
+                debug( "LM 03" );
+                adjHitPoints( (integer)msg );
+            }
+        }else if( num == GI_LM_DISPLAY_CASH ) {
+            if( id == "CH_Adj" ) {
+                debug( "LM 04" );
+                adjustCash( (integer)msg );
+            }
         }
     }
 }

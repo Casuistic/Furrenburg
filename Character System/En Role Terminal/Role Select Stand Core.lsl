@@ -4,7 +4,7 @@
 // FB Role Selection Terminal
 //
 // 201908302001
-//
+// 202001200654
 //
 */
 
@@ -17,7 +17,7 @@ integer GI_Last = -1;
 integer GI_Pick = -1;
 integer GI_Next = -1;
 
-key GK_Icons = "eb0791f5-e72c-92d7-162f-7444e23b8903";
+key GK_Icons = "9244c439-53c7-ed90-79b7-dcd4c4638a63";//"eb0791f5-e72c-92d7-162f-7444e23b8903";
 key GK_Descs = "e2221ef1-9a3d-51b9-6a06-5449423a71b1";
 
 
@@ -32,7 +32,7 @@ list GL_Class_Icons = [
     "c1a17f83-8971-0236-3358-283613cc70e4", // Sci
     "bfaab990-6dfc-da78-e505-89fcd9697cdb", // Med
     "f3831407-318d-1f21-1fdb-adc7754cf681", // fire dep
-    "3c5cd5a7-da41-b842-099c-5fdfe908dfad", // cop
+    "59df7b7c-44c4-de92-c8a7-d784a27af069",//"3c5cd5a7-da41-b842-099c-5fdfe908dfad", // cop
 
     "ddea300f-50ec-b948-46d1-20071bf303a6", // p dic
     "00af41d4-1fc6-90b0-266f-e4c7b32fce2b" // cop dic

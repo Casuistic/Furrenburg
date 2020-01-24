@@ -4,7 +4,21 @@
 // 201911141400
 // 201925120855
 // 202001091740
+// 202001200445
+// 202001210922
+// 202001222222 // new hud
+// 202001242210 // pre saving before changing channel / lm handeling
 */
+
+
+#undef DEBUG
+#define REPORT
+
+#include "oups.lsl" // debugging
+string GS_Script_Name = "CAT HUD Inv"; // debugging
+
+#include "debug.lsl"
+#include "report.lsl"
 
 integer GI_Inv_Disp = -1;
 integer GI_Inv_Data = -1;
@@ -24,15 +38,15 @@ list GL_Inv_Func = [];
 list GL_Inv_Susp = [];
 
 integer GI_Inv_Max = 6;
-list GL_Faces = [ 4, 1, 5, 2, 6, 3 ]; // faces of inventory hud, left -> right, top -> bottom
+list GL_Faces = [6,5,4,3,2,1];//[ 4, 1, 5, 2, 6, 3 ]; // faces of inventory hud, left -> right, top -> bottom
 
 integer GI_Inv_Select = -1;
 
 
-vector GV_Scale_In = <0.04305, 0.10931, 0.31523>;
-vector GV_Scale_Out = <0.04305, 0.47264, 0.31523>;
-vector GV_Loc_In = <-0.03540, -0.39216, 0.26000>;
-vector GV_Loc_Out = <-0.03540, -0.13480, 0.26000>;
+vector GV_Scale_In = <0.020000, 0.300000, 0.100000>; // <0.04305, 0.10931, 0.31523>;
+vector GV_Scale_Out = <0.020000, 0.300000, 0.450000>; // <0.04305, 0.47264, 0.31523>;
+vector GV_Loc_In = <0.000000, 0.338100, 0.000000>; // <-0.03540, -0.39216, 0.26000>;
+vector GV_Loc_Out = <0.000000, 0.338051, 0.376587>; // <-0.03540, -0.13480, 0.26000>;
 
 
 integer GI_Inv_Chan = 2121;
@@ -72,12 +86,6 @@ map() {
 
 
 
-debug( string msg ) {
-    llOwnerSay( msg );
-}
-
-
-
 doPrint() {
     if( GI_Inv_Disp == -1 ) {
         debug( "Err: GI_Inv_Disp is set to '"+ (string)GI_Inv_Disp +"'" );
@@ -101,7 +109,7 @@ doPrint() {
         
         llSetLinkPrimitiveParamsFast( GI_Inv_Disp, 
             [
-                PRIM_TEXTURE, face, img, <1,1,0>, <0,0,0>, PI/2,
+                PRIM_TEXTURE, face, img, <1,1,0>, <0,0,0>, 0,//PI/2,
                 PRIM_COLOR, face, col, 1
             ] );
     }
@@ -225,6 +233,7 @@ clearDialogListen() {
 integer parseUserCmdCommon( string msg ) {
     if( msg == "Cancel" ) { // check for cancel
         clearDialogListen();
+        llSensor( "", "", AGENT, 10, PI );
         return TRUE;
     } else if( msg == "Examin" ) { // check for examin
         llOwnerSay( llList2String( GL_Inv_Desc, GI_Active_Index ) );
@@ -252,27 +261,50 @@ parseUserCmd( string msg ) {
     }
     
     string data = llList2String( GL_Active_Item_Funcs, index );
-    //llOwnerSay( "Trigger: "+ data );
     list funcs = llParseString2List( data, [":"], [] );
+    
+    llOwnerSay( "You Used: "+ llList2String( GL_Inv_Items, GI_Active_Index ) );
+    integer used = FALSE;
     
     integer i;
     integer num = llGetListLength( funcs );
-    
-    llOwnerSay( "You Used: "+ llList2String( GL_Inv_Items, GI_Active_Index ) );
-    
     for( i=0; i<num; ++i ) {
         list parts = llParseString2List( llList2String( funcs, i ), [","], [] );
-        
         integer valid = FALSE;
-        
         string act = llList2String( parts, 0 );
         if( act == "sb" ) {
-            if( !valid = doStatBonus( [llList2String( GL_Inv_Items, GI_Active_Index )] + llList2List( parts, 1, -1 ) ) ) {
+            if( valid = doStatBonus( [llList2String( GL_Inv_Items, GI_Active_Index )] + llList2List( parts, 1, -1 ) ) ) {
+                used = TRUE;
+            } else {
                 llOwnerSay( "Err: Stat Bonus Invalid"  );
             }
         } else if( act == "re" ) {
-            if( !valid = doRestore( [llList2String( GL_Inv_Items, GI_Active_Index )] + llList2List( parts, 1, -1 ) ) ) {
+            if( llGetListLength( parts ) == 4 ) {
+                string tar = llList2String( parts, -1 );
+                if( tar == "ot" ) {
+                    fetchTargets();
+                } else if( tar == "se" ) {
+                    if( (valid = doRestore( [llList2String( GL_Inv_Items, GI_Active_Index )] + llList2List( parts, 1, -2 ) ) ) ) {
+                        used = TRUE;
+                    } else {
+                        llOwnerSay( "Err: Restore Invalid"  );
+                    }
+                }
+            } else if( (valid = doRestore( [llList2String( GL_Inv_Items, GI_Active_Index )] + llList2List( parts, 1, -1 ) ) ) ) {
+                used = TRUE;
+            } else {
                 llOwnerSay( "Err: Restore Invalid"  );
+            }
+        } else if( act == "ca" ) {
+            string tar = llList2String( parts, -1 );
+            if( tar == "ot" ) {
+                //fetchTargets();
+                // give to other???
+            }
+            if( valid = doCashAdjust( llList2List( parts, 1, 1 ) ) ) {
+                used = TRUE;
+            } else {
+                llOwnerSay( "Err: Cash Adjust Invalid"  );
             }
         }
         
@@ -281,9 +313,21 @@ parseUserCmd( string msg ) {
         }
     }
     
-    dropItem( GI_Active_Index );
-    doPrint();
+    if( used ) {
+        dropItem( GI_Active_Index );
+        doPrint();
+    }
     clearDialogListen();
+}
+
+
+integer doCashAdjust( list data ) {
+    //llOwnerSay( "Cash Mod: "+ llDumpList2String( data, ", " ) );
+    if( llGetListLength( data ) == 1 ) {
+        llMessageLinked( LINK_THIS, 557, llList2String( data, 0 ), "CH_Adj" );
+        return TRUE;
+    }
+    return FALSE;
 }
 
 
@@ -314,6 +358,7 @@ ack( key id, integer chan, string tag ) {
     //llOwnerSay( (string)id +", "+ (string)chan +", "+ "FB:ACK:"+ tag );
     llRegionSayTo( id, chan, "FB:ACK:"+ tag );
 }
+
 // ack or nack inventory actions
 nak( key id, integer chan, string tag ) {
     //llOwnerSay( (string)id +", "+ (string)chan +", "+ "FB:NAK:"+ tag );
@@ -358,6 +403,7 @@ integer addItem( string item ) {
         GL_Inv_Icon += (key)llList2String( end, 2 );
         GL_Inv_Susp += (integer)llList2String( end, 3 );
         GL_Inv_Func += (string)llList2String( end, 4 );
+        debug( "Add Item Func: "+ (string)llList2String( end, 4 ) );
         return TRUE;
     } else {
         llOwnerSay( "Inventory OverLoaded" );
@@ -367,11 +413,11 @@ integer addItem( string item ) {
 }
 
 
-
 integer delItem( string item ) {
     integer index = llListFindList( GL_Inv_Items, [item] );
     return dropItem( index );
 }
+
 
 integer dropItem( integer index ) {
     if( index >= 0 && index < llGetListLength( GL_Inv_Raw ) ) {
@@ -387,6 +433,71 @@ integer dropItem( integer index ) {
     return FALSE;
 }
 
+
+fetchTargets() {
+    llSensor( "", "", AGENT, 20, TWO_PI );
+}
+
+
+clearTargets() {
+    llListenRemove( GI_Listen_Target );
+    GL_Indexed_Targets = [];
+}
+
+
+integer GI_Listen_Target = -1;
+integer GI_Target_Dialog_Chan = -9988;
+list GL_Indexed_Targets = [];
+gotTargets( list subs, integer index ) {
+    llListenRemove( GI_Listen_Target );
+    GI_Listen_Target = llListen( GI_Target_Dialog_Chan, "", "", "" );
+    
+    list seek = llList2ListStrided( subs, 0, -1, 2 );
+    integer len = llGetListLength( seek );
+    
+    GL_Indexed_Targets = subs;
+    list end;
+    if( len > 9 ) {
+        if( index == 0 ) {
+            end = [">>", "Cancel", "Rescan"];
+        } else {
+            end = ["<<", "Cancel", "Rescan"];
+        }
+    } else {
+        index = 0;
+        end = [" ", "Cancel", "Rescan"];
+    }
+    if( len > 9 ) {
+        if( index == 0 ) {
+            seek = llList2List( seek, 0, 8 );
+        } else {
+            seek = llList2List( seek, 9, -1 );
+        }
+    }
+    llDialog( llGetOwner(), "Pick Target", end + seek, GI_Target_Dialog_Chan );
+}
+
+
+actOnTarget( key id ) {
+
+}
+
+
+parseTargetCmd( string data ) {
+    integer index;
+    if( data == "Cancel" ) {
+        clearTargets();
+    } else if( data == "<<" ) {
+        gotTargets( GL_Indexed_Targets, 0 );
+    } else if( data == ">>" ) {
+        gotTargets( GL_Indexed_Targets, 1 );
+    } else if( data =="Rescan" ) {
+        fetchTargets();
+    } else if( (index = llListFindList( GL_Indexed_Targets, [data] )) != -1 ) {
+        actOnTarget( llList2Key( GL_Indexed_Targets, index+1 ) );
+        clearTargets();
+    }
+}
 
 
 openDisplay( integer open ) {
@@ -410,11 +521,36 @@ openDisplay( integer open ) {
 
 
 
+
+
+
+
+
+
 // uuid to integer
 integer key2Chan ( key id, integer base, integer rng ) {
     integer sine = 1;
     if( base < 0 ) { sine = -1; }
     return (base+(sine*(((integer)("0x"+(string)id)&0x7FFFFFFF)%rng)));
+}
+
+
+string strTrim( string text, integer len, string pad_b, string pad_e ) {
+    if( llStringLength( text ) > len ) {
+        text = llGetSubString( text, 0, len-1 );
+    } else if( llStringLength( text ) < len && (pad_b != "" || pad_e != "") ) {
+        integer cur = llStringLength( text );
+        while( cur < len ) {
+            if( cur+2 < len || pad_b == "" ) {
+                text = pad_b + text;
+            }
+            if( pad_e == "" ) {
+                text += pad_e;
+            }
+            cur = llStringLength( text );
+        }
+    }
+    return text;
 }
 
 
@@ -439,8 +575,24 @@ integer isValidAction( key id, string data, string ver ) {
 
 
 
-
 default {
+    sensor( integer num ) {
+        list subs = [];
+        integer i;
+        for( i=0; i<num; ++i ) {
+            string name = strTrim( llDetectedName( i ), 12, "", "" );
+            key id = llDetectedKey( i );
+            subs += [name, id];
+        }
+        gotTargets( subs, 0 );
+    }
+    
+    no_sensor() {
+        llOwnerSay( "No Targets in Range" );
+        clearTargets();
+    }
+
+
     state_entry() {
         llSetLinkPrimitiveParamsFast( LINK_SET, [PRIM_TEXT, "", <1,1,1>, 1] );
     
@@ -451,16 +603,21 @@ default {
         llListen( GI_Inv_Chan, "", "", "" );
         llOwnerSay( "Inv Ready!" );
     }
-
     
+
+    // used for add/delete items / clear inv and req inv list
     listen( integer chan, string name, key id, string msg ) {
         if( chan == 55 && id == llGetOwner() ) {
-            parseUserCmd( msg );
+            parseUserCmd( msg ); // parse user input
             return;
         }
-        llShout( 9090, msg );
+        if( chan == GI_Target_Dialog_Chan && id == llGetOwner() ) {
+            parseTargetCmd( msg );
+            return;
+        }
+        report( msg );
         integer index = llListFindList( GL_Auth_Agent, llGetObjectDetails(id, [OBJECT_CREATOR]) );
-        //debug( "Listen msg: "+ msg );
+        debug( "Listen msg: "+ msg );
         if( llStringLength( msg ) > 3 && llGetSubString( msg, 0, 2 ) == "FB:" ) {
             //list data = llParseString2List( llGetSubString( msg, 3, -1 ), [":"], [] );
             list data = llJson2List( llGetSubString( msg, 3, -1 ) );
@@ -517,6 +674,9 @@ default {
                 string output = "FB:"+ llList2Json( JSON_ARRAY, ["items"] + GL_Inv_Items );
                 llRegionSayTo( id, chan, output );
                 //debug( "List Dump: "+ output );
+            } else if( llList2String( data, 0 ) == "CMod"  ) {
+                doCashAdjust( [llList2String( data, 1 )] );
+                ack( id, chan, llList2String( data, -1 ) );
             } else {
                 debug( "CAT Err: Vad Inv Command" );
             }

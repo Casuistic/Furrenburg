@@ -8,6 +8,9 @@
 // 201908270132
 // 201911141515
 */
+#include <oups.lsl> // debugging
+string GS_Script_Name = "CAT Status Bar"; // debugging
+
 
 
 
@@ -34,7 +37,7 @@ integer GI_Token_Mis = -1;
 key GK_Alert_Sound = "8ce19ac4-2775-6ff5-2464-086ede57696e";
 
 
-integer GI_Chan_A = -55; // open channel for hud to overhead communication
+integer GI_Chan_A = -22; // open channel for hud to overhead communication
 integer GI_Listen_A_Base = -100000;
 integer GI_Listen_A_Range = 100000;
 
@@ -108,7 +111,7 @@ setLev( list tokens, integer lev ) {
 }
 
 doHUDCommand( string cmd ) {
-    //llOwnerSay( "Command Check: "+ cmd );
+    llOwnerSay( "Command Check: "+ cmd );
     string tag = llGetSubString( cmd, 0, 2 );
     if( tag == "INC" ) {
         parseIncrament( cmd );
@@ -180,13 +183,15 @@ parseRole( string cmd ) {
     }
 }
 
+
 parseSet( string cmd ) {
     list data = llParseString2List( cmd, [" "], [] );
     if( llGetListLength( data ) != 3 ) {
         return;
     }
     integer val = (integer)llList2String( data, 2 );
-    if( llList2String( data, 1 ) == "MinSus" ) {
+    string act = llList2String( data, 1 );
+    if( act == "MinSus" ) {
         GI_WL_Min = val;
         if( GI_WL_Min > GI_WL_Max ) {
             GI_WL_Min = GI_WL_Max;
@@ -194,8 +199,13 @@ parseSet( string cmd ) {
             GI_WL_Cur = GI_WL_Min;
         } 
         setLev( GL_Str, GI_WL_Min );
+    } else if( act == "HP" ) {
+        setLev( GL_Bar, val );
+    } else {
+        llOwnerSay( "Bad Overhead Set Command" );
     }
 }
+
 
 integer last = -1;
 token( list items ) {
@@ -227,7 +237,7 @@ openComm() {
 }
 
 ping() {
-    llRegionSayTo( llGetOwner(), GI_Chan_A, "FB:Ping" );
+    llRegionSayTo( llGetOwner(), GI_Chan_A, "Ping" );
 }
 
 integer GI_Listen;
@@ -239,6 +249,7 @@ default {
     }
     
     state_entry() {
+        safeLoad();
         prep();
         openComm();
         setLev( GL_Str, GI_WL_Cur );
@@ -251,8 +262,11 @@ default {
             return; // reject non owner / hud commands
         }
         if( chan == GI_Chan_A ) {
+            llOwnerSay( "OHH Cmd: "+ msg );
             doHUDCommand( msg );
             return;
+        } else {
+            llOwnerSay( "Rejected: "+ msg );
         }
     }
 }
