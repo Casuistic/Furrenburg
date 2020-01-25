@@ -19,9 +19,13 @@ string GS_Script_Name = "CAT HUD Core"; // debugging
 
 
 #include <LM Chan Ref.lsl> // link message chan ref
+#include <CAT Filters.lsl>
 
 
-integer gListener; // Identity of the listener associated with the dialog, so we can clean up when not needed
+
+
+
+
 
 list GL_Stat_Mods = [
     0, // str
@@ -50,25 +54,25 @@ integer GI_Inv_Disp = -1;
 
 integer GI_Cash_Disp = -1; // prim for displaying cash monies!!!
 
+integer GI_Link_Class = 0;
+
 // 0-8 tiled texture;
 key GK_Display_Text = "407341b2-03d3-8155-59da-921155be2c85";//"6a69e885-99a1-9f04-ee42-c2f160fb452c";
 key GK_Role_Icon = "85cd93de-8a05-7a05-b89f-33ecbab7b019";
+key GK_Class_Icon = "e2d52c8e-5ccd-a125-9382-e626ac945664";
 
-key GK_GB_Group = "3e895a38-75a3-c112-3f52-8b1451e97e25"; // FB group uuid
+
+
 
 integer GI_Conc_Chan = -55; // channel on which to chat to the balls
 
-integer GI_Listen_A = -1;
-integer GI_Chan_A = -22; // open channel for hud to overhead communication
-integer GI_Listen_A_Base = -100000; // set the minimum value
-integer GI_Listen_A_Range = 100000; // set the range of values
+integer GI_Listen_OH = -1;
+integer GI_Chan_OH = -22; // open channel for hud to overhead communication
 
 integer GI_Listen_B = -1; // filtered
 integer GI_Listen_B2 = -1; // unfiltered
 
 integer GI_Chan_B = -11; // open channel for hud to Stand Comm
-integer GI_Listen_B_Base = -200000; // set the minimum value
-integer GI_Listen_B_Range = 100000; // set the range of values
 
 integer GI_Chan_C = -33;
 integer GI_Listen_C = -1;
@@ -79,7 +83,6 @@ integer GI_Chan_RollOut = -551;
 
 
 key GK_Anim_Down = "down";
-
 
 
 
@@ -182,7 +185,7 @@ vector valToOffset( vector start, float step, integer val ) {
 // NEEDS TO MAP THE LINKS, LOAD DATA, ENABLE LISTENS, THEN DISPLAY STATS
 setup() {
     debug( "setup()" );
-    llListenRemove( GI_Listen_A );
+    llListenRemove( GI_Listen_OH );
     llListenRemove( GI_Listen_B );
     llListenRemove( GI_Listen_C );
 
@@ -191,10 +194,11 @@ setup() {
     
     openDisplay( FALSE ); // close display on start up
     updateStats(); // update the stats
+    setClass( 5 );
     
-    GI_Chan_A = key2Chan( llGetOwner(), GI_Listen_A_Base, GI_Listen_A_Range );
-    GI_Chan_B = key2Chan( llGetOwner(), GI_Listen_B_Base, GI_Listen_B_Range );
-    GI_Listen_A = llListen( GI_Chan_A, "", "", "Ping" );
+    GI_Chan_OH = key2Chan( llGetOwner(), GI_CHAN_OH_BASE, GI_CHAN_OH_RANGE );
+    GI_Chan_B = key2Chan( llGetOwner(), GI_CHAN_CS_BASE, GI_CHAN_CS_RANGE );
+    GI_Listen_OH = llListen( GI_Chan_OH, "", "", "Ping" );
     GI_Listen_B = llListen( GI_Chan_B, "", "", "OpenChan" );
     GI_Listen_C = llListen( GI_Chan_C, "", "", "" );
 
@@ -221,6 +225,7 @@ integer load() {
                     //llOwnerSay( "New: "+ encode( llGetOwner(), llList2String(data,1) ) );
                     GL_Stat_Mods = stats;
                     GK_Role_Icon = (key)llList2String(tokens,5);
+                    GK_Class_Icon = "e2d52c8e-5ccd-a125-9382-e626ac945664";
                     return TRUE;
                 }
             } else {
@@ -378,7 +383,7 @@ setHitPoints( integer hp ) {
         hp = 5;
     }
     GI_Stat_HP = hp;
-    llRegionSayTo( llGetOwner(), GI_Chan_A, "SET HP "+ (string)GI_Stat_HP );
+    llRegionSayTo( llGetOwner(), GI_Chan_OH, "SET HP "+ (string)GI_Stat_HP );
     if( hp == 0 ) {
         zeroHitPoints();
     }
@@ -390,7 +395,7 @@ setMinSus( integer lev ) {
         lev = 0;
     }
     GI_Min_Sus = lev;
-    llRegionSayTo( llGetOwner(), GI_Chan_A, "SET MinSus "+ (string)lev );
+    llRegionSayTo( llGetOwner(), GI_Chan_OH, "SET MinSus "+ (string)lev );
 }
 
 /*  HP HAS REACHED ZERO */
@@ -441,8 +446,17 @@ integer setRole( list tokens ) {
     GK_Role_Icon = (key)llList2String( tokens, 0 );
     updateStats();
     updateOverhead();
+    setClass( 5 );
     save();
     return TRUE;
+}
+
+setClass( integer mark ) {
+    debug( "setClass()" );//['"+ llDumpList2String( tokens, "', '" ) +"']" );
+    llOwnerSay( "Set Class" );
+    float step = 1.0/4;
+    llSetLinkPrimitiveParamsFast( GI_Link_Class, [
+            PRIM_TEXTURE, ALL_SIDES, GK_Class_Icon, <1.0/4,1.0/4,0>, valToOffset(<-(step+(step/2)),(step+(step/2)),2>, step, mark), 0 ] );
 }
 
 
@@ -464,6 +478,8 @@ map() {
             GI_Inv_Disp = i;
         } else if( cmd == ".V_CASH" ) { // find all the stat display prims
             GI_Cash_Disp = i;
+        } else if( cmd == ".CLASS" ) {
+            GI_Link_Class = i;//e2d52c8e-5ccd-a125-9382-e626ac945664
         }
     }
     GL_Stat_Disp = data; // preserve stat prims in global list
@@ -498,9 +514,9 @@ updateStats() {
 
 updateOverhead() {
     debug( "updateOverhead()" );
-    llRegionSayTo( llGetOwner(), GI_Chan_A, "ROL "+ (string)GK_Role_Icon );
-    llRegionSayTo( llGetOwner(), GI_Chan_A, "SET HP "+ (string)GI_Stat_HP );
-    llRegionSayTo( llGetOwner(), GI_Chan_A, "SET MinSus "+ (string)GI_Min_Sus );
+    llRegionSayTo( llGetOwner(), GI_Chan_OH, "ROL "+ (string)GK_Role_Icon );
+    llRegionSayTo( llGetOwner(), GI_Chan_OH, "SET HP "+ (string)GI_Stat_HP );
+    llRegionSayTo( llGetOwner(), GI_Chan_OH, "SET MinSus "+ (string)GI_Min_Sus );
 }
 
 
@@ -520,9 +536,9 @@ doButton( string bName ) {
     } else if( bName == ".B_RUN" ){
         llSay( 0, llKey2Name( llGetOwner() ) +" runs away like a little Bitch!" );
     } else if( bName == ".B_QST" ) {
-        llRegionSayTo( llGetOwner(), GI_Chan_A, "SAI QST" );
+        llRegionSayTo( llGetOwner(), GI_Chan_OH, "SAI QST" );
     } else if( bName == ".B_HLP" ) {
-        llRegionSayTo( llGetOwner(), GI_Chan_A, "SAI HLP" );
+        llRegionSayTo( llGetOwner(), GI_Chan_OH, "SAI HLP" );
     } else if( bName == ".B_INV" ) {
         openDisplay( -1 );
     } else if( bName == ".B_STARTCONV") {
@@ -537,13 +553,13 @@ doButton( string bName ) {
 doInc( string bName ) {
     debug( "doInc() '"+ bName +"'" );
     if( bName == ".I_INC_HP" ) {
-        llRegionSayTo( llGetOwner(), GI_Chan_A, "INC HP 1" );
+        llRegionSayTo( llGetOwner(), GI_Chan_OH, "INC HP 1" );
     } else if( bName == ".I_DEC_HP" ){
-        llRegionSayTo( llGetOwner(), GI_Chan_A, "INC HP -1" );
+        llRegionSayTo( llGetOwner(), GI_Chan_OH, "INC HP -1" );
     } else if( bName == ".I_INC_WL" ){
-        llRegionSayTo( llGetOwner(), GI_Chan_A, "INC WL 1" );
+        llRegionSayTo( llGetOwner(), GI_Chan_OH, "INC WL 1" );
     } else if( bName == ".I_DEC_WL" ){
-        llRegionSayTo( llGetOwner(), GI_Chan_A, "INC WL -1" );
+        llRegionSayTo( llGetOwner(), GI_Chan_OH, "INC WL -1" );
     }
 }
 
@@ -757,7 +773,7 @@ default {
         llMessageLinked( LINK_SET, 5, "RESET", "CAT_RESET" );
         setup();
         llOwnerSay( "Core Ready!" );
-        setCash( GI_Cash_Disp, 500 );
+        setCash( GI_Cash_Disp, 0 );
         //fullReset();
     }
     
@@ -785,26 +801,21 @@ default {
     
     listen( integer chan, string name, key id, string msg ) {
         debug( "LI: "+ (string)chan +", "+ name +", "+ (string)id +", "+ msg );
-        if( chan == GI_Chan_A ) { // overhead hud
+        if( chan == GI_Chan_OH ) { // overhead hud
             debug( "LI Chan_A" );
-            //llOwnerSay(  (string)chan +" A Got: ["+ name +"] "+ msg );
             if( llGetOwnerKey( id ) == llGetOwner() ) { // same owner
                 parseSafeCmd( chan, name, id, msg );
                 return;
             }
         } else if( chan == GI_Chan_B ) { // character stand
             debug( "LI Chan_B" );
-            //llOwnerSay(  (string)chan +" B Got: ["+ name +"] "+ msg );
-            key group = llList2Key( llGetObjectDetails( id, [OBJECT_GROUP] ), 0 );
-            if( group == GK_GB_Group ) { // FB group
+            if( isGroup( id ) ) { // FB group
                 parseStandCmd( chan, name, id, msg );
                 return;
             }
         } else if( chan == GI_Chan_C ) { // external elements // force roll and the like
             debug( "LI Chan_C" );
-            //llOwnerSay(  (string)chan +" C Got: ["+ name +"] "+ msg );
-            key group = llList2Key( llGetObjectDetails( id, [OBJECT_GROUP] ), 0 );
-            if( group == GK_GB_Group ) { // FB group
+            if( isGroup( id ) ) { // FB group
                 parseExternalCmd( chan, name, id, msg );
                 return;
             }

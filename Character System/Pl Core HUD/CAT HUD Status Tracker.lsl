@@ -37,7 +37,9 @@ setup() {
     GL_Status_Duration = [];
     GI_Running = FALSE;
     GI_Set = FALSE;
-    reqPermissions( llGetOwner(), FALSE );
+    if( llGetAttached() != 0 ) {
+        reqPermissions( llGetOwner(), FALSE );
+    }
 }
 
 

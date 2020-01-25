@@ -10,11 +10,15 @@
 // 201925120855
 // 202001200633
 // 202001211801
+// 202001242254
+// 202001252033 // added item use sound support
+#undef DEBUG
+#include <debug.lsl>
 
+#include <LM Chan Ref.lsl> // link message chan ref
 
 
 integer chan = -100; // used for death command to rezzed display item
-integer GI_Chan_Inv = 2121;
 
 key GK_Rezzed;
 
@@ -126,8 +130,8 @@ integer verify( key id ) {
     if( JSON_INVALID == json ) {
         return FALSE;
     }
-    //llRegionSayTo( id, GI_Chan_Inv, "FB:IAdd:"+ GS_Item_Name +space+ (string)GK_Item_Img +space+ (string)GI_Item_Susp +space+ json +space+ GS_Encode_Key +":"+ GS_End_Flag );
-    llRegionSayTo( id, GI_Chan_Inv, "FB:"+ json );
+    //llRegionSayTo( id, GI_CHAN_INV, "FB:IAdd:"+ GS_Item_Name +space+ (string)GK_Item_Img +space+ (string)GI_Item_Susp +space+ json +space+ GS_Encode_Key +":"+ GS_End_Flag );
+    llRegionSayTo( id, GI_CHAN_INV, "FB:"+ json );
     return TRUE;
 }
 
@@ -204,9 +208,14 @@ parse( string raw ) {
                 //GI_Item_Susp = (integer)val;
                 json( "susp", val );
             } else if( tag == "item_func" ) {
-                if( llStringLength(tag) > 0 ) {
+                if( llStringLength(val) > 0 ) {
                     //GL_Item_Func += val;
                     jsonArr( "func", JSON_APPEND, val );
+                }
+            } else if( tag == "item_func_sound" ) {
+                if( llStringLength(val) > 0 ) {
+                    //GL_Item_Func += val;
+                    jsonArr( "fsnd", JSON_APPEND, val );
                 }
             } else if( tag == "item_spawn_time" ) {
                 //llOwnerSay( "Set: '"+ tag +"' : '"+ val +"'" );
@@ -272,7 +281,11 @@ string ranStr( integer length ) {
 }
 
 
-
+parseChange( integer flag ) {
+    if( flag & CHANGED_INVENTORY ) {
+        llResetScript();
+    }
+}
 
 //////////////
 //  STATES  //
@@ -281,7 +294,6 @@ string ranStr( integer length ) {
 
 default {
     state_entry() {
-        llSay( -1, "RESET" ); // do not remove this line as it fixes the llRegionSayTo lock up issue somehow...
         key id = (key)llGetObjectDesc();
         llRegionSayTo( id, chan, "DIE" );
         error( FALSE );
@@ -317,7 +329,7 @@ default {
             GK_Dataserver_Ref = NULL_KEY;
             if (strData == EOF) {
                 compileKey();
-                llOwnerSay( "MEROWF!!! "+  GS_JSON_Data );
+                //llOwnerSay( "MEROWF!!! "+  GS_JSON_Data );
                 if( isReady() ){
                     state respawn;
                 }
@@ -329,7 +341,6 @@ default {
                 //llOwnerSay( strData );
                 parse( strData );
             }
-            
             llSetTimerEvent( 0.5 );
         }
     }
@@ -342,6 +353,10 @@ default {
             GK_Dataserver_Ref = llGetNotecardLine( GS_DataNote, GI_DataNote_Line);
             llSetTimerEvent( 15 );
         }
+    }
+    
+    changed( integer flag ) {
+        parseChange( flag );
     }
 }
 
@@ -360,6 +375,10 @@ state broken {
         llSetText( "", <1,1,1>, 1 );
         error( FALSE );
     }
+    
+    changed( integer flag ) {
+        parseChange( flag );
+    }
 }
 
 
@@ -373,7 +392,7 @@ state ready {
             state respawn;
         }
         if( llDetectedType( 0 ) & AGENT_BY_LEGACY_NAME ) {
-            GI_Listen = llListen( GI_Chan_Inv, "", "", "" );
+            GI_Listen = llListen( GI_CHAN_INV, "", "", "" );
             if( GK_Subject == NULL_KEY && verify( llDetectedKey( 0 ) ) ) {
                 llSetTimerEvent( 10 );
             }
@@ -395,7 +414,6 @@ state ready {
     }
     
     state_entry() {
-        llWhisper( 0, "Ready" );
         GS_End_Flag = ranStr( 3 );
         GK_Subject = NULL_KEY;
     }
@@ -408,6 +426,10 @@ state ready {
         llListenRemove( GI_Listen );
         GK_Subject = NULL_KEY;
         llSetTimerEvent( 0 );
+    }
+    
+    changed( integer flag ) {
+        parseChange( flag );
     }
 }
 
@@ -435,6 +457,10 @@ state spawn {
         llSetObjectDesc( id );
         state ready;
     }
+    
+    changed( integer flag ) {
+        parseChange( flag );
+    }
 }
 
 
@@ -452,6 +478,10 @@ state respawn {
         llSetTimerEvent( 0 );
         clear();
         state spawn;
+    }
+    
+    changed( integer flag ) {
+        parseChange( flag );
     }
 }
 

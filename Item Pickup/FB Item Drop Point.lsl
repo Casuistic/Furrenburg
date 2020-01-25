@@ -1,4 +1,12 @@
 // 201925120855
+// 202001242254
+#undef DEBUG
+#include <debug.lsl>
+
+#include <LM Chan Ref.lsl> // link message chan ref
+
+
+
 
 
 integer GB_Quick = FALSE;
@@ -28,8 +36,6 @@ integer GI_Coin_Count = 0;
 list GL_Known_Agents = [];
 
 
-integer GI_Inv_Chan = 2121;
-
 
 string GS_Salt = "CAT_SPAWN_PAD!"; // salt for verification code
 
@@ -44,7 +50,7 @@ string GS_Salt = "CAT_SPAWN_PAD!"; // salt for verification code
 zero() {
     GB_Quick = FALSE;
     hatch( FALSE );
-    llSensorRepeat( "", "", AGENT_BY_LEGACY_NAME, GI_Rng, PI/2, 0.5 );
+    llSensorRepeat( "", "", AGENT_BY_LEGACY_NAME, GI_Rng, PI, 2.5 );
     rotation rrot = llGetRootRotation();
     vector detected = <10,0,0> / rrot;
     vector pos = llGetPos();
@@ -57,7 +63,7 @@ active() {
     GB_Quick = TRUE;
     llSensorRepeat( "", "", AGENT_BY_LEGACY_NAME, GI_Rng, PI/2, 0.5 );
     hatch( TRUE );
-    GI_Listen = llListen( 2121, "", "", "" );
+    GI_Listen = llListen( GI_CHAN_INV, "", "", "" );
 }
 
 
@@ -157,7 +163,7 @@ default {
                     logAgent( id );
                     chat( id );
                 }
-                llRegionSayTo( id, GI_Inv_Chan, "FB:"+ llList2Json( JSON_ARRAY, ["IChk"] ) );
+                llRegionSayTo( id, GI_CHAN_INV, "FB:"+ llList2Json( JSON_ARRAY, ["IChk"] ) );
             }
         }
 
@@ -195,7 +201,7 @@ default {
             if( llListFindList( GL_Seek, llList2List( data, i, i ) ) != -1 ) {
                 string item = llList2String( data, i );
                 string ver_key = encode( llGetKey(), item );
-                llRegionSayTo( id, GI_Inv_Chan, "FB:"+ llList2Json( JSON_ARRAY, ["IDel", item, ver_key, GS_End_Flag] ) );
+                llRegionSayTo( id, GI_CHAN_INV, "FB:"+ llList2Json( JSON_ARRAY, ["IDel", item, ver_key, GS_End_Flag] ) );
                 found = TRUE;
             }
         }

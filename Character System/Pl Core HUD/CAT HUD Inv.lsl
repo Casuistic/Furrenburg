@@ -8,17 +8,19 @@
 // 202001210922
 // 202001222222 // new hud
 // 202001242210 // pre saving before changing channel / lm handeling
+// 202001252033 // added item use sound support
 */
-
-
-#undef DEBUG
-#define REPORT
-
-#include "oups.lsl" // debugging
-string GS_Script_Name = "CAT HUD Inv"; // debugging
+#define DEBUG
+#undef REPORT
 
 #include "debug.lsl"
 #include "report.lsl"
+#include "oups.lsl" // debugging
+string GS_Script_Name = "CAT HUD Inv"; // debugging
+
+#include <LM Chan Ref.lsl> // link message chan ref
+
+
 
 integer GI_Inv_Disp = -1;
 integer GI_Inv_Data = -1;
@@ -36,6 +38,8 @@ list GL_Inv_Desc = [];
 list GL_Inv_Icon = [];
 list GL_Inv_Func = [];
 list GL_Inv_Susp = [];
+list GL_Inv_FSnd = [];
+
 
 integer GI_Inv_Max = 6;
 list GL_Faces = [6,5,4,3,2,1];//[ 4, 1, 5, 2, 6, 3 ]; // faces of inventory hud, left -> right, top -> bottom
@@ -45,11 +49,10 @@ integer GI_Inv_Select = -1;
 
 vector GV_Scale_In = <0.020000, 0.300000, 0.100000>; // <0.04305, 0.10931, 0.31523>;
 vector GV_Scale_Out = <0.020000, 0.300000, 0.450000>; // <0.04305, 0.47264, 0.31523>;
-vector GV_Loc_In = <0.000000, 0.338100, 0.000000>; // <-0.03540, -0.39216, 0.26000>;
-vector GV_Loc_Out = <0.000000, 0.338051, 0.376587>; // <-0.03540, -0.13480, 0.26000>;
+vector GV_Loc_In = <-0.35, 0, -0.200000>; // <-0.03540, -0.39216, 0.26000>;
+vector GV_Loc_Out = <-0.35, 0, 0.275>; // <-0.03540, -0.13480, 0.26000>;
 
 
-integer GI_Inv_Chan = 2121;
 
 
 list GL_Auth_Agent = [
@@ -185,20 +188,31 @@ integer GI_Active_Index = -1;
 string GS_Active_Text = "";
 list GL_Active_Item_Funcs = [];
 list GL_Active_Item_Buttons = [];
+list GL_Active_Item_Sounds = [];
 openDialog( integer index ) {
     llListenRemove( GL_Listen_Inv );
     GL_Listen_Inv = llListen( 55, "", llGetOwner(), "" );
     llSetTimerEvent( 30 );
 
     list funcs = llJson2List( llList2String( GL_Inv_Func, index ) );
+    list sref = llJson2List( llList2String( GL_Inv_FSnd, index ) );
+
     GI_Active_Index = index;
     GS_Active_Text = llList2String( GL_Inv_Items, GI_Active_Index );
     GL_Active_Item_Funcs = [];
     GL_Active_Item_Buttons = [];
+    
+    GL_Active_Item_Sounds = [];
+    integer num = llGetListLength( sref );
+    for( ; num-- >= 0; ) {
+        GL_Active_Item_Sounds += llParseString2List( llList2String( sref, num ), [":"], [] );
+    }
+    debug( "AO Key + Sound: "+ llDumpList2String( GL_Active_Item_Sounds, " / " ) );
     integer i;
     for( i=0; i<llGetListLength( funcs ) && i < 9; ++i ) {
         list func = llParseString2List( llList2String( funcs, i ), [":"], [] );
-        integer point = llListFindList( GL_Active_Item_Buttons, llList2List( func, 0, 0 ) );
+        list cmd = llList2List( func, 0, 0 );
+        integer point = llListFindList( GL_Active_Item_Buttons, cmd );
         if( point == -1 ) {
             GL_Active_Item_Buttons += llList2String( func, 0 );
             GL_Active_Item_Funcs += llList2String( func, 1 );
@@ -262,7 +276,7 @@ parseUserCmd( string msg ) {
     
     string data = llList2String( GL_Active_Item_Funcs, index );
     list funcs = llParseString2List( data, [":"], [] );
-    
+
     llOwnerSay( "You Used: "+ llList2String( GL_Inv_Items, GI_Active_Index ) );
     integer used = FALSE;
     
@@ -314,6 +328,10 @@ parseUserCmd( string msg ) {
     }
     
     if( used ) {
+        index = llListFindList( GL_Active_Item_Sounds, [msg] );
+        if( index != -1 ) {
+            llTriggerSound( llList2Key( GL_Active_Item_Sounds, index+1 ), 1 );
+        }
         dropItem( GI_Active_Index );
         doPrint();
     }
@@ -371,16 +389,17 @@ integer addItem( string item ) {
     //string test = encode( id,  ); 
     if( llGetListLength( GL_Inv_Raw ) < GI_Inv_Max ) {
         GL_Inv_Raw += [ item ];
-        //list data = llParseString2List( item, [","], [] );
         list data = llJson2List( item );
         integer i;
         integer num = llGetListLength( data );
         list end = [ 
-                "Unknown",
-                "No Description",
-                "1377ee26-6938-c41a-99c4-74bbd2544917",
-                "0",
-                "" ];
+                    "Unknown",
+                    "No Description",
+                    "1377ee26-6938-c41a-99c4-74bbd2544917",
+                    "0",
+                    "",
+                    "" 
+                ];
         for( i=0; i<num; i+=2 ) {
             string tag = llList2String( data, i );
             if( tag == "name" ) {
@@ -393,7 +412,9 @@ integer addItem( string item ) {
                 end = llListReplaceList( end, [llList2String( data, i+1 )], 3,3 );
             } else if( tag == "func" ) {
                 end = llListReplaceList( end, [llList2String( data, i+1 )], 4,4 );
-            } else {
+            } else if( tag == "fsnd" ) {
+                end = llListReplaceList( end, [llList2String( data, i+1 )], 5,5 );
+            }else {
                 debug( "bad item data: '"+ tag +"' Aborting" );
                 return FALSE;
             }
@@ -403,6 +424,7 @@ integer addItem( string item ) {
         GL_Inv_Icon += (key)llList2String( end, 2 );
         GL_Inv_Susp += (integer)llList2String( end, 3 );
         GL_Inv_Func += (string)llList2String( end, 4 );
+        GL_Inv_FSnd += (string)llList2String( end, 5 );
         debug( "Add Item Func: "+ (string)llList2String( end, 4 ) );
         return TRUE;
     } else {
@@ -427,6 +449,7 @@ integer dropItem( integer index ) {
         GL_Inv_Icon = llDeleteSubList( GL_Inv_Icon, index, index );
         GL_Inv_Func = llDeleteSubList( GL_Inv_Func, index, index );
         GL_Inv_Susp = llDeleteSubList( GL_Inv_Susp, index, index );
+        GL_Inv_FSnd = llDeleteSubList( GL_Inv_FSnd, index, index );
         return TRUE;
     }
     debug( "dropItem Failed" );
@@ -600,7 +623,7 @@ default {
         openDisplay( FALSE );
         doPrint();
 
-        llListen( GI_Inv_Chan, "", "", "" );
+        llListen( GI_CHAN_INV, "", "", "" );
         llOwnerSay( "Inv Ready!" );
     }
     
@@ -616,7 +639,7 @@ default {
             return;
         }
         report( msg );
-        integer index = llListFindList( GL_Auth_Agent, llGetObjectDetails(id, [OBJECT_CREATOR]) );
+        //integer index = llListFindList( GL_Auth_Agent, llGetObjectDetails(id, [OBJECT_CREATOR]) );
         debug( "Listen msg: "+ msg );
         if( llStringLength( msg ) > 3 && llGetSubString( msg, 0, 2 ) == "FB:" ) {
             //list data = llParseString2List( llGetSubString( msg, 3, -1 ), [":"], [] );
