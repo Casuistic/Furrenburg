@@ -1,5 +1,8 @@
-
-
+#ifndef INC_CHAN_REF
+#define INC_CHAN_REF
+/*
+// 202001272322
+*/
 // LISTEN CHANNELS
 integer GI_CHAN_INV = 2121; // used by spawn pads and item gives to give items to the inventory system
 
@@ -28,5 +31,4 @@ integer GI_LM_DISPLAY_STATS = 555;
 integer GI_LM_DISPLAY_HP = 556;
 integer GI_LM_DISPLAY_CASH = 557;
 
-
-// END OF FILE
+#endif

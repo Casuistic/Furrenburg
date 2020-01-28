@@ -18,7 +18,7 @@
 string GS_Script_Name = "CAT HUD Core"; // debugging
 
 
-#include <LM Chan Ref.lsl> // link message chan ref
+#include <CAT Chan Ref.lsl> // link message chan ref
 #include <CAT Filters.lsl>
 
 
@@ -709,13 +709,7 @@ fullReset() {
 }
 
 
-
-adjustCash( integer val ) {
-    setCash( GI_Cash_Disp, GO_Cash_On_Hand + val );
-}
-
 integer GO_Cash_On_Hand = 0;
-
 setCash( integer link, integer val ) {
     GO_Cash_On_Hand = val;
     vector col = <1,1,1>;
@@ -803,7 +797,7 @@ default {
         debug( "LI: "+ (string)chan +", "+ name +", "+ (string)id +", "+ msg );
         if( chan == GI_Chan_OH ) { // overhead hud
             debug( "LI Chan_A" );
-            if( llGetOwnerKey( id ) == llGetOwner() ) { // same owner
+            if( isUserSafe( id ) ) { // same owner
                 parseSafeCmd( chan, name, id, msg );
                 return;
             }
@@ -867,9 +861,9 @@ default {
                 adjHitPoints( (integer)msg );
             }
         }else if( num == GI_LM_DISPLAY_CASH ) {
-            if( id == "CH_Adj" ) {
+            if( id == "CH_Set" ) {
                 debug( "LM 04" );
-                adjustCash( (integer)msg );
+                setCash( GI_Cash_Disp, (integer)msg );
             }
         }
     }

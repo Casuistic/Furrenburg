@@ -5,7 +5,7 @@ string GS_Script_Name = "CAT Alert Cliant"; // debugging
 
 
 #include <CAT Filters.lsl>
-#include <LM Chan Ref.lsl> // link message chan ref
+#include <CAT Chan Ref.lsl> // link message chan ref
 
 
 

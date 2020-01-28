@@ -1,4 +1,4 @@
-//
+// XXXX
 //
 //
 //
@@ -15,14 +15,14 @@
 #undef DEBUG
 #include <debug.lsl>
 
-#include <LM Chan Ref.lsl> // link message chan ref
-
+#include <CAT Chan Ref.lsl> // link message chan ref
+#include <CAT Encode.lsl>
 
 integer chan = -100; // used for death command to rezzed display item
 
 key GK_Rezzed;
 
-key GK_Subject = NULL_KEY; // potencial pickup target used for listen filtering
+//key GK_Subject = NULL_KEY; // potencial pickup target used for listen filtering
 
 
 
@@ -63,10 +63,10 @@ key GK_LoadedCard = NULL_KEY; // notecard key / reloaded if not found on state c
 integer GI_Listen = -1; // listen for verification
 
 
-string GS_Salt = "CAT_SPAWN_PAD!"; // salt for verification code
+//string GS_Salt = "CAT_SPAWN_PAD!"; // salt for verification code
 
 
-
+key GK_Subject = NULL_KEY;
 
 
 
@@ -81,18 +81,6 @@ integer key2Chan ( key id, integer base, integer rng ) {
     if( base < 0 ) { sine = -1; }
     return (base+(sine*(((integer)("0x"+(string)id)&0x7FFFFFFF)%rng)));
 }
-
-
-string encode( key id, string text ) {
-    string text = llXorBase64( llStringToBase64( GS_Salt + text ), llIntegerToBase64( key2Chan(id,1000000,1000000) ) );
-    if( llStringLength( text ) < 15 ) {
-        text += llGetSubString( "qwertyuiopasdfg", 0, 14-llStringLength(text) );
-    } else if( llStringLength( text ) > 15 ) {
-        text = llGetSubString( text, 0, 14 );
-    }
-    return text;
-}
-
 
 
 // remove rezed display item
@@ -160,17 +148,9 @@ resetItem() {
             "img","1377ee26-6938-c41a-99c4-74bbd2544917",
             "susp","0"
         ] );
-    GS_Encode_Key = encode( llGetKey(), GS_JSON_Data );
+    GS_Encode_Key = encode( llGetKey(), "IAdd", GS_JSON_Data );
 }
 
-
-json( string index, string val ) {
-    GS_JSON_Data = llJsonSetValue( GS_JSON_Data, [index], val );
-}
-
-jsonArr( string index, integer num, string val ) {
-    GS_JSON_Data = llJsonSetValue( GS_JSON_Data, [index,num], val );
-}
 
 // notecard value parsing
 parse( string raw ) {
@@ -191,31 +171,30 @@ parse( string raw ) {
             if( index < end ) {
                 val = llGetSubString( value, (index+1), -1 );
             }
-            
             if( tag == "item_name" ) {
                 //llOwnerSay( "Set: '"+ tag +"' : '"+ val +"'" );
                 GS_Item_Name = val;
-                json( "name", val );
+                GS_JSON_Data = json( GS_JSON_Data, "name", val );
             } else if( tag == "item_desc") {
                 //GS_Item_desc = val;
-                json( "desc", val );
+                GS_JSON_Data = json( GS_JSON_Data, "desc", val );
             } else if( tag == "item_icon" ) {
                 //llOwnerSay( "Set: '"+ tag +"' : '"+ val +"'" );
                 GK_Item_Img = (key)val;
-                json( "img", val );
+                GS_JSON_Data = json( GS_JSON_Data, "img", val );
             } else if( tag == "item_susp" ) {
                 //llOwnerSay( "Set: '"+ tag +"' : '"+ val +"'" );
                 //GI_Item_Susp = (integer)val;
-                json( "susp", val );
+                GS_JSON_Data = json( GS_JSON_Data, "susp", val );
             } else if( tag == "item_func" ) {
                 if( llStringLength(val) > 0 ) {
                     //GL_Item_Func += val;
-                    jsonArr( "func", JSON_APPEND, val );
+                    GS_JSON_Data = jsonArr( GS_JSON_Data, "func", JSON_APPEND, val );
                 }
             } else if( tag == "item_func_sound" ) {
                 if( llStringLength(val) > 0 ) {
                     //GL_Item_Func += val;
-                    jsonArr( "fsnd", JSON_APPEND, val );
+                    GS_JSON_Data = jsonArr( GS_JSON_Data, "fsnd", JSON_APPEND, val );
                 }
             } else if( tag == "item_spawn_time" ) {
                 //llOwnerSay( "Set: '"+ tag +"' : '"+ val +"'" );
@@ -240,10 +219,6 @@ parse( string raw ) {
     }
 }
 
-// prep the verification key
-compileKey() {
-    GS_Encode_Key = encode( llGetKey(), GS_JSON_Data );
-}
 
 
 setPadColor( vector col ) {
@@ -266,26 +241,20 @@ error( integer err ) {
 }
 
 
-// used to generate verification flag
-string ranStr( integer length ) {
-    string chars = "1234567890abcdefghijklmnopqrstuvwxyz";
-    integer len = llStringLength( chars );
-    string output;
-    integer i;
-    integer index;
-    do {
-       index = (integer) llFrand(len);
-       output += llGetSubString(chars, index, index);
-    } while( ++i < length );                                                    
-    return output;
-}
-
-
 parseChange( integer flag ) {
     if( flag & CHANGED_INVENTORY ) {
         llResetScript();
     }
 }
+
+
+
+
+
+
+
+
+
 
 //////////////
 //  STATES  //
@@ -328,8 +297,7 @@ default {
             llSetTimerEvent( 0 );
             GK_Dataserver_Ref = NULL_KEY;
             if (strData == EOF) {
-                compileKey();
-                //llOwnerSay( "MEROWF!!! "+  GS_JSON_Data );
+                GS_Encode_Key = compileKey( "IAdd", GS_JSON_Data );
                 if( isReady() ){
                     state respawn;
                 }
@@ -401,12 +369,12 @@ state ready {
     
     listen( integer chan, string name,  key id, string msg ) {
         if( llGetOwnerKey( id ) == GK_Subject && llStringLength( msg ) > 3 && llGetSubString( msg, 0, 2 ) == "FB:" ) {
-            list data = llParseString2List( llGetSubString( msg, 3, -1 ), [":"], [] );
-            if( llList2String( data, 0 ) == "ACK" && llList2String( data, 1 ) == GS_End_Flag ) {
+            list data = llJson2List( llGetSubString( msg, 3, -1 ) );
+            if( llList2String( data, 0 ) == "ACK" && llList2String( data, -1 ) == GS_End_Flag ) {
                 llListenRemove( GI_Listen );
                 GK_Subject = NULL_KEY;
                 state respawn;
-            } else if( llList2String( data, 0 ) == "NAK" && llList2String( data, 1 ) == GS_End_Flag ) {
+            } else if( llList2String( data, 0 ) == "NAK" && llList2String( data, -1 ) == GS_End_Flag ) {
                 llListenRemove( GI_Listen );
                 GK_Subject = NULL_KEY;
             }
