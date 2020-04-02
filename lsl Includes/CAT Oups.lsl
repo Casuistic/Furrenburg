@@ -1,4 +1,8 @@
-
+#ifndef INC_OUPS
+#define INC_OUPS
+/*
+// 202001272322
+*/
 // GS_Script_Name
 
 safeLoad() {
@@ -11,3 +15,6 @@ safeLoad() {
         llSay( 0, "Exposed Script Name '"+ GS_Script_Name +"' Does Not Match In World Script Name '"+ llGetScriptName() +"'!\nPlease Reload: '"+ llGetScriptName() +"'" );
     }
 }
+
+#endif
+//END OF FILE

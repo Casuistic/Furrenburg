@@ -14,7 +14,7 @@
 */
 #undef DEBUG
 #include <debug.lsl>
-#include <oups.lsl> // debugging
+#include "CAT oups.lsl" // debugging
 string GS_Script_Name = "CAT HUD Core"; // debugging
 
 
@@ -442,7 +442,6 @@ integer setStats( list tokens ) {
 
 integer setRole( list tokens ) {
     debug( "setRole() ['"+ llDumpList2String( tokens, "', '" ) +"']" );
-    llOwnerSay( "Role Updated" );
     GK_Role_Icon = (key)llList2String( tokens, 0 );
     updateStats();
     updateOverhead();
@@ -453,7 +452,6 @@ integer setRole( list tokens ) {
 
 setClass( integer mark ) {
     debug( "setClass()" );//['"+ llDumpList2String( tokens, "', '" ) +"']" );
-    llOwnerSay( "Set Class" );
     float step = 1.0/4;
     llSetLinkPrimitiveParamsFast( GI_Link_Class, [
             PRIM_TEXTURE, ALL_SIDES, GK_Class_Icon, <1.0/4,1.0/4,0>, valToOffset(<-(step+(step/2)),(step+(step/2)),2>, step, mark), 0 ] );

@@ -11,12 +11,12 @@
 // 202001252033 // added item use sound support
 // 202001272322
 */
-#undef DEBUG
+#define DEBUG
 #define REPORT
 
 #include "debug.lsl"
 #include "report.lsl"
-#include "oups.lsl" // debugging
+#include "CAT oups.lsl" // debugging
 string GS_Script_Name = "CAT HUD Inv"; // debugging
 
 #include <CAT Filters.lsl>
@@ -84,7 +84,7 @@ list GL_Active_Item_Sounds = [];
 
 
 
-      
+
 // map prims and find display prims
 map() {
     integer i;
@@ -483,6 +483,7 @@ integer GI_Listen_Target = -1;
 integer GI_Target_Dialog_Chan = -9988;
 list GL_Indexed_Targets = [];
 gotTargets( list subs, integer index ) {
+    debug( "Got Targets() : ["+ llDumpList2String( subs, "," ) +"], "+ (string)index );
     llListenRemove( GI_Listen_Target );
     GI_Listen_Target = llListen( GI_Target_Dialog_Chan, "", "", "" );
     
@@ -676,7 +677,8 @@ default {
         }
         gotTargets( subs, 0 );
     }
-    
+
+
     no_sensor() {
         llOwnerSay( "No Targets in Range" );
         clearTargets();
@@ -693,7 +695,7 @@ default {
         llListen( GI_CHAN_INV, "", "", "" );
         llOwnerSay( "Inv Ready!" );
     }
-    
+
 
     // used for add/delete items / clear inv and req inv list
     listen( integer chan, string name, key id, string msg ) {
