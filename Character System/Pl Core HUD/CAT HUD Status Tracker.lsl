@@ -5,9 +5,14 @@
 // 202001091740
 // 202001242210 // pre saving before changing channel / lm handeling
 */
-#include <LM Chan Ref.lsl> // link message chan ref
 
-#include <oups.lsl> // debugging
+#define DEBUG
+#include <CAT Chan Ref.lsl> // link message chan ref
+#include <debug.lsl> // debugging
+#include <CAT Oups.lsl> // debugging
+
+
+
 string GS_Script_Name = "CAT HUD Status"; // debugging
 
 
@@ -25,6 +30,18 @@ list GL_Condition_Effects = [];
 list GL_Condition_Duration = [];
 
 key GK_Anim_Down = "down";
+
+
+
+list GL_Sound_Cough = [
+    "a8200c9f-22df-2f85-3825-107aed7c5587",
+    "9a356aae-145c-2df7-1c60-2e4fc3031f6a",
+    "c40cee78-b28f-fbf5-ff85-34bd286d2ff0",
+
+    "35462f99-df1d-0ce4-96e4-b81e18c44009",
+    "1941e563-b8b5-958d-973f-f20371112639",
+    "040267a2-f7c7-5d6c-3966-25b892d218de"
+];
 
 
 
@@ -67,10 +84,12 @@ addEffect( string src, integer mod, integer dur, integer stat ) {
         setup();
     } else if( !GI_Running ) {
         GI_Running = TRUE;
-        llSetTimerEvent( 1 );//GI_Status_Interval );
+        llSetTimerEvent( GI_Time_Interval );//GI_Status_Interval );
     }
     pushAugs();
 }
+
+
 
 addCondition( string src, string cond, integer dur ) {
     integer index = llListFindList( GL_Condition_Id, [src] );
@@ -133,7 +152,10 @@ integer doStatCheck() {
     return TRUE;
 }
 
+
+
 integer doConditionCheck() {
+    debug( "doConditionCheck()" );
     integer i;
     integer num = llGetListLength( GL_Condition_Id );
     list remove = [];
@@ -143,6 +165,7 @@ integer doConditionCheck() {
             parseCondition( llList2String( GL_Condition_Effects, i ), FALSE );
             remove += i;
         } else {
+            parseCondLinger( llList2String( GL_Condition_Effects, i ) );
             GL_Condition_Duration = llListReplaceList( GL_Condition_Duration, [dur], i, i );
         }
     }
@@ -161,6 +184,9 @@ integer doConditionCheck() {
     }
     return TRUE;
 }
+
+
+
 
 pushAugs() {
     integer i;
@@ -211,9 +237,26 @@ parseCondition( string cond, integer active ) {
             llStopAnimation( GK_Anim_Down );
             reqPermissions( llGetOwner(), FALSE );
         }
+    } else if( cond == "SICK" ) {
+        if( active ) {
+            addCondition( "SICK1", "SICK2", 20 );
+            llStartAnimation( GK_Anim_Down );
+            reqPermissions( llGetOwner(), TRUE );
+        } else {
+            llStopAnimation( GK_Anim_Down );
+            reqPermissions( llGetOwner(), FALSE );
+        }
     }
 }
 
+
+parseCondLinger( string cond ) {
+    debug( "parseCondLinger( '"+ cond +"' )" );
+    integer roll = (integer)llFrand( 100 );
+    if( roll >= 80 ) {
+        llTriggerSound( llList2Key( GL_Sound_Cough, (integer)llFloor( llFrand( llGetListLength( GL_Sound_Cough ) ) ) ), 1 );
+    }
+}
 
 
 integer GI_Set = FALSE;
@@ -315,9 +358,7 @@ default {
             if( id == "CONDITION" ) {
                 parseCondition( msg, TRUE );
             }
-        }
-        
-        else if( id == "CAT_RESET" ) {
+        } else if( id == "CAT_RESET" ) {
             llResetScript();
         }
     }

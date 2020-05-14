@@ -346,12 +346,16 @@ parseUserCmd( string msg ) {
 
 
 integer doCashAdjust( list data ) {
-    //llOwnerSay( "Cash Mod: "+ llDumpList2String( data, ", " ) );
+    data = llJson2List( llList2String( data, 0 ) );
+    debug( "doCashAdjust( ["+ llDumpList2String( data, ", " ) +"] )" );
     if( llGetListLength( data ) == 1 ) {
         integer val = (integer)llList2String( data, 0 );
+        llOwnerSay( "Cash Adjust: "+ (string)val );
         GO_Cash_On_Hand += val;
-        llMessageLinked( LINK_THIS, 557, (string)GO_Cash_On_Hand, "CH_Set" );
+        llMessageLinked( LINK_THIS, GI_LM_DISPLAY_CASH, (string)GO_Cash_On_Hand, "CH_Set" );
         return TRUE;
+    } else {
+        debug( "doCashAdjust Error: Bad List" );
     }
     return FALSE;
 }
@@ -363,7 +367,7 @@ integer doPay( list data ) {
         integer val = llAbs( (integer)llList2String( data, 0 ) );
         if( GO_Cash_On_Hand - val >= 0 ) {
             GO_Cash_On_Hand -= val;
-            llMessageLinked( LINK_THIS, 557, (string)GO_Cash_On_Hand, "CH_Set" );
+            llMessageLinked( LINK_THIS, GI_LM_DISPLAY_CASH, (string)GO_Cash_On_Hand, "CH_Set" );
             return TRUE;
         }
     }
@@ -590,7 +594,7 @@ parseExternalCmd( key id, integer chan, string raw ) {
     list data = llJson2List( llGetSubString( raw, 3, -1 ) );
 
     if( llGetListLength( data ) != 4 ) {
-        debug( "Rejected Too Short: "+ raw );
+        debug( "Rejected Too Short: "+ raw +" {L:"+ (string)llGetListLength(data)+ "}" );
         return;
     }
     
@@ -608,28 +612,29 @@ parseExternalCmd( key id, integer chan, string raw ) {
 
     if( cmd == "IAdd" ) { // add item to inventory
         if( addItem( llList2String( data, 1 ) ) ) {
-            ack( id, chan, llList2String( data, 3 ) );
+            ack( id, chan, llList2String( data, -1 ) );
             doPrint();
         } else {
-            nak( id, chan, llList2String( data, 3 ) );
+            nak( id, chan, llList2String( data, -1 ) );
         }
         return;
     } else if( cmd == "IDel" ) {
         if( delItem( llList2String( data, 1 ) ) ) {
-            ack( id, chan, llList2String( data, 2 ) );
+            ack( id, chan, llList2String( data, -1 ) );
             doPrint();
         } else {
-            nak( id, chan, llList2String( data, 2 ) );
+            nak( id, chan, llList2String( data, -1 ) );
         }
     } else if( cmd == "IClr" ) {
         list items = llJson2List( llList2String( data, 1 ) );
         integer i;
         integer num = llGetListLength( items );
         for( i=0; i<num; ++i ) {
-            if( delItem( llList2String( items, i ) ) ) {
-                ack( id, chan, llList2String( items, -1 ) );
+            string item = llList2String( items, i );
+            if( delItem( item ) ) {
+                ack_d( id, chan, [item], llList2String( data, -1 ) );
             } else {
-                nak( id, chan, llList2String( items, -1 ) );
+                nak_d( id, chan, [item], llList2String( data, -1 ) );
             }
         }
         doPrint();
@@ -637,12 +642,12 @@ parseExternalCmd( key id, integer chan, string raw ) {
         doShowItems( id, chan );
     } else if( cmd == "CMod"  ) {
         doCashAdjust( [llList2String( data, 1 )] );
-        ack( id, chan, llList2String( data, -1 ) );
+        ack_d( id, chan, [cmd, "Cash Mod"], llList2String( data, -1 ) );
     } else if( cmd == "CPay"  ) {
         if( doPay( llJson2List( llList2String( data, 1 ) ) ) ) {
-            ack( id, chan, llList2String( data, -1 ) );
+            ack_d( id, chan, [cmd, "Payment Made"], llList2String( data, -1 ) );
         } else {
-            nak( id, chan, llList2String( data, -1 ) );
+            nak_d( id, chan, [cmd, "DoPay Failed"], llList2String( data, -1 ) );
         }
     } else if( cmd == "CChk"  ) {
         doShowCash( id, chan );
@@ -687,11 +692,9 @@ default {
 
     state_entry() {
         llSetLinkPrimitiveParamsFast( LINK_SET, [PRIM_TEXT, "", <1,1,1>, 1] );
-    
         map();
         openDisplay( FALSE );
         doPrint();
-
         llListen( GI_CHAN_INV, "", "", "" );
         llOwnerSay( "Inv Ready!" );
     }
@@ -711,6 +714,7 @@ default {
         report( msg );
         debug( "Listen msg: "+ msg );
         if( !isGroup(id) ) { // REJECT NON GROUP OBJECT MESSAGES
+            debug( "Non Target Group" );
             return;
         }
         if( llStringLength( msg ) > 3 && llGetSubString( msg, 0, 2 ) == "FB:" ) {

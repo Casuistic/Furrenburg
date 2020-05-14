@@ -7,8 +7,10 @@
 // 201908262051
 // 201908270132
 // 201911141515
+// 202004070115
 */
-#include <oups.lsl> // debugging
+
+#include "CAT oups.lsl" // debugging
 string GS_Script_Name = "CAT Status Bar"; // debugging
 
 
@@ -16,10 +18,12 @@ string GS_Script_Name = "CAT Status Bar"; // debugging
 
 list GL_Str;
 list GL_Bar;
+list GL_Rnk;
 
 
 integer GI_HP_Cur = 5; // current health level
 integer GI_WL_Cur = 0; // current wanted level
+integer GI_RK_Cur = 0;
 
 integer GI_HP_Max = 5; // max health level
 integer GI_WL_Max = 5; // max wanted level
@@ -41,6 +45,13 @@ integer GI_Chan_A = -22; // open channel for hud to overhead communication
 integer GI_Listen_A_Base = -100000;
 integer GI_Listen_A_Range = 100000;
 
+integer GI_Listen;
+
+
+integer last = -1;
+
+
+
 
 
 integer key2Chan ( key id, integer base, integer rng ) {
@@ -55,11 +66,13 @@ prep() {
     string heal = ".HEALTH";
     string token = ".TOKEN";
     string icon = ".ROL";
+    string rank = ".RANK";
 
     integer i;
     integer num = llGetNumberOfPrims();
     list str = [];
     list bar = [];
+    list rnk = [];
     string name = "";
     for( i=1; i<=num; ++i ) {
         name = llGetLinkName(i);
@@ -68,6 +81,9 @@ prep() {
             llSetLinkAlpha( i, 1, ALL_SIDES );
         } else if( name == star ) {
             str += ["B"+ llList2String(llGetLinkPrimitiveParams(i,[PRIM_DESC]),0), i]; 
+            llSetLinkAlpha( i, 1, ALL_SIDES );
+        } else if( name == rank ) {
+            rnk += ["C"+ llList2String(llGetLinkPrimitiveParams(i,[PRIM_DESC]),0), i]; 
             llSetLinkAlpha( i, 1, ALL_SIDES );
         } else if( name == icon ) {
             llSetLinkAlpha( i, 1, ALL_SIDES );
@@ -92,9 +108,11 @@ prep() {
     
     str = llListSort( str, 2, TRUE );
     bar = llListSort( bar, 2, TRUE );
+    rnk = llListSort( rnk, 2, TRUE );
     
     GL_Str = llList2ListStrided( llList2List( str, 1,-1 ), 0,-1,2 );
     GL_Bar = llList2ListStrided( llList2List( bar, 1,-1 ), 0,-1,2 );
+    GL_Rnk = llList2ListStrided( llList2List( rnk, 1,-1 ), 0,-1,2 );
 }
 
 
@@ -110,6 +128,7 @@ setLev( list tokens, integer lev ) {
     }
 }
 
+
 doHUDCommand( string cmd ) {
     llOwnerSay( "Command Check: "+ cmd );
     string tag = llGetSubString( cmd, 0, 2 );
@@ -123,6 +142,7 @@ doHUDCommand( string cmd ) {
         parseSet( cmd );
     }
 }
+
 
 parseIncrament( string cmd ) {
     list data = llParseString2List( cmd, [" "], [] );
@@ -149,6 +169,7 @@ parseIncrament( string cmd ) {
     }
 }
 
+
 parseIcons( string cmd ) {
     list data = llParseString2List( cmd, [" "], [] );
     if( llGetListLength( data ) != 2 ) {
@@ -170,6 +191,7 @@ parseIcons( string cmd ) {
         token( [-1, GI_Token_Mis, GI_Token_Hlp, GI_Token_Qst, GI_Token_Hit] );
     }
 }
+
 
 parseRole( string cmd ) {
     list data = llParseString2List( cmd, [" "], [] );
@@ -200,14 +222,18 @@ parseSet( string cmd ) {
         } 
         setLev( GL_Str, GI_WL_Min );
     } else if( act == "HP" ) {
-        setLev( GL_Bar, val );
+        GI_HP_Cur = val;
+        setLev( GL_Bar, GI_HP_Cur );
+    } else if( act == "RNK" ) {
+        GI_RK_Cur = val;
+        setLev( GL_Rnk, GI_RK_Cur );
     } else {
         llOwnerSay( "Bad Overhead Set Command" );
     }
 }
 
 
-integer last = -1;
+
 token( list items ) {
     integer i;
     integer num = llGetListLength( items );
@@ -236,11 +262,19 @@ openComm() {
     GI_Listen = llListen( GI_Chan_A, "", "", "" );
 }
 
+
 ping() {
     llRegionSayTo( llGetOwner(), GI_Chan_A, "Ping" );
 }
 
-integer GI_Listen;
+
+
+
+
+
+
+
+
 default {
     attach( key id ) {
         if( id != NULL_KEY ) {
@@ -254,6 +288,7 @@ default {
         openComm();
         setLev( GL_Str, GI_WL_Cur );
         setLev( GL_Bar, GI_HP_Cur );
+        setLev( GL_Rnk, GI_RK_Cur );
         ping();
     }
     
@@ -262,7 +297,7 @@ default {
             return; // reject non owner / hud commands
         }
         if( chan == GI_Chan_A ) {
-            llOwnerSay( "OHH Cmd: "+ msg );
+            //llOwnerSay( "OHH Cmd: "+ msg );
             doHUDCommand( msg );
             return;
         } else {

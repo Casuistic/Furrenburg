@@ -12,7 +12,7 @@
 // 202001210922
 // 202001242210 // pre saving before changing channel / lm handeling
 */
-#undef DEBUG
+#define DEBUG
 #include <debug.lsl>
 #include "CAT oups.lsl" // debugging
 string GS_Script_Name = "CAT HUD Core"; // debugging
@@ -20,10 +20,10 @@ string GS_Script_Name = "CAT HUD Core"; // debugging
 
 #include <CAT Chan Ref.lsl> // link message chan ref
 #include <CAT Filters.lsl>
+#include <CAT Encode.lsl>
 
 
-
-
+// encode
 
 
 
@@ -118,14 +118,6 @@ list getDiceRoll( integer nod, integer nof ) {
 
 
 
-// uuid to integer
-integer key2Chan ( key id, integer base, integer rng ) {
-    debug( "key2Chan() '"+ (string)id +"', '"+ (string)base +"', '"+ (string)rng +"'" );
-    integer sine = 1;
-    if( base < 0 ) { sine = -1; }
-    return (base+(sine*(((integer)("0x"+(string)id)&0x7FFFFFFF)%rng)));
-}
-
 
 // set a display prims texture offset
 setStatDispOld( integer link, integer face, integer lev ) {
@@ -212,8 +204,7 @@ integer load() {
     if( GI_Data_Prim != -1 ) {
         list data = llParseString2List( llList2String( llGetLinkPrimitiveParams( GI_Data_Prim, [PRIM_DESC]), 0 ), [";"], [] );
         if( llGetListLength( data ) == 3 && llList2String( data, 0 ) == "STA" ) {
-            if( verify( llGetOwner(), llList2String( data, 1 ), llList2String( data, 2 ) ) ) {
-                //llOwnerSay( "Loading: "+ llList2String( data, 1 ) );
+            if( verifyStoreData( llGetOwner(), llList2String( data, 1 ), llList2String( data, 2 ) ) ) {
                 integer i;
                 list tokens = llParseString2List( llList2String(data,1), [","], [] );
                 if( llGetListLength( tokens ) == 6 ) {
@@ -221,8 +212,6 @@ integer load() {
                     for(i=0;i<5;++i) {
                         stats += (integer)llList2String(tokens,i);
                     }
-                    //llOwnerSay( "Old: "+ llList2String(data,2) );
-                    //llOwnerSay( "New: "+ encode( llGetOwner(), llList2String(data,1) ) );
                     GL_Stat_Mods = stats;
                     GK_Role_Icon = (key)llList2String(tokens,5);
                     GK_Class_Icon = "e2d52c8e-5ccd-a125-9382-e626ac945664";
@@ -245,7 +234,7 @@ save() {
     if( GI_Data_Prim != -1 ) {
         string text = llDumpList2String( GL_Stat_Mods,"," ) +","+ (string)GK_Role_Icon;
         llSetLinkPrimitiveParamsFast( GI_Data_Prim, [PRIM_TEXTURE, ALL_SIDES, GK_Role_Icon, <1,1,0>, <0,0,0>, 0 ] );
-        llSetLinkPrimitiveParamsFast( GI_Data_Prim, [PRIM_DESC, "STA;"+ text +";"+ encode( llGetOwner(), text )] );
+        llSetLinkPrimitiveParamsFast( GI_Data_Prim, [PRIM_DESC, "STA;"+ text +";"+ encodeStoreData( llGetOwner(), text )] );
     }
 }
 
@@ -257,29 +246,11 @@ wipe() {
     if( GI_Data_Prim != -1 ) {
         list stats = [0,0,0,0,0];
         string text = llDumpList2String( stats,"," ) +",85cd93de-8a05-7a05-b89f-33ecbab7b019";
-        llSetLinkPrimitiveParamsFast( GI_Data_Prim, [PRIM_DESC, "STA;"+ text +";"+ encode( llGetOwner(), text )] );
+        llSetLinkPrimitiveParamsFast( GI_Data_Prim, [PRIM_DESC, "STA;"+ text +";"+ encodeStoreData( llGetOwner(), text )] );
     }
 }
 
 
-string GS_Salt = "CATS_WIN!"; // salt for save data
-string encode( key id, string text ) {
-    debug( "encode() '"+ (string)id +"', '"+ text +"'" );
-    string text = llXorBase64( llStringToBase64( GS_Salt + text ), llIntegerToBase64( key2Chan(id,1000000,1000000) ) );
-    if( llStringLength( text ) < 15 ) {
-        text += llGetSubString( "qwertyuiopasdfg", 0, 14-llStringLength(text) );
-    } else if( llStringLength( text ) > 15 ) {
-        text = llGetSubString( text, 0, 14 );
-    }
-    return text;
-}
-
-
-integer verify( key id, string str1, string str2 ) {
-    debug( "verify() '"+ (string)id +"', '"+ str1 +"', '"+ str2 +"'" );
-    return( encode( id, str1 ) == str2 );
-    //return TRUE;
-}
 
 
 openChan( key id ) {
@@ -364,9 +335,15 @@ integer parseExternalCmd( integer chan, string name, key id, string msg ) {
     } else if( tag == "HIT" ) {
         integer adj = llAbs( (integer)llList2String( data, 1 ) );
         adjHitPoints( -adj );
+    } else if( tag == "SICK" ) {
+        debug( "Get Down With The Sickness" );
+        llMessageLinked( LINK_THIS, GI_LM_CONDITION, "SICK", "CONDITION" );
     }
     return FALSE;
 }
+
+
+
 
 /*  ADJUST HP UP OR DOWN */
 adjHitPoints( integer adj ) {
@@ -709,6 +686,7 @@ fullReset() {
 
 integer GO_Cash_On_Hand = 0;
 setCash( integer link, integer val ) {
+    debug( "setting cash: "+ (string)val );
     GO_Cash_On_Hand = val;
     vector col = <1,1,1>;
     if( val < 0 ) {
@@ -858,7 +836,7 @@ default {
                 debug( "LM 03" );
                 adjHitPoints( (integer)msg );
             }
-        }else if( num == GI_LM_DISPLAY_CASH ) {
+        } else if( num == GI_LM_DISPLAY_CASH ) {
             if( id == "CH_Set" ) {
                 debug( "LM 04" );
                 setCash( GI_Cash_Disp, (integer)msg );
