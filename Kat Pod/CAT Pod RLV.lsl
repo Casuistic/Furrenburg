@@ -9,13 +9,13 @@
 // 202001071140 // added recapture feature
 // 202001071751 // handled auto scaling
 // 202001071915 // fixed recapture ignoring safeword
+// 202008120350 // implamented timer release function
 
 
 
 
 
-
-#include <oups.lsl> // debugging
+#include <CAT Oups.lsl> // debugging
 string GS_Script_Name = "CAT Pod RLV"; // debugging
 
 // should handle rlv not being active on user

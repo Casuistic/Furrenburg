@@ -9,8 +9,9 @@
 // 202001071751 // handled auto scaling
 // 202001071915 // fixed recapture ignoring safeword
 // 202001102045 // added set code dialog system
+// 202008120350 // implamented timer release function
 
-#include <oups.lsl> // debugging
+#include <CAt Oups.lsl> // debugging
 string GS_Script_Name = "CAT Pod UI"; // debugging
 
 
@@ -256,6 +257,11 @@ integer parseDataLoad( string data ) {
                         llMessageLinked( LINK_THIS, 200,
                             llStringTrim( llList2String( break, 1 ), STRING_TRIM ),
                             llGetSubString( tag, 4,-1 ) 
+                        );
+                    } else if( llGetSubString( tag, 0,2 ) == "SR_" ) {
+                        llMessageLinked( LINK_THIS, 240,
+                            llStringTrim( llList2String( break, 1 ), STRING_TRIM ),
+                            llGetSubString( tag, 3,-1 ) 
                         );
                     } else {
                         llOwnerSay( "Unknown Data: '"+ tag +" : "+ data +"'" );

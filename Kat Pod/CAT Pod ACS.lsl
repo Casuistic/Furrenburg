@@ -8,10 +8,10 @@
 // 202001052125
 // 202001071140 // added recapture feature
 // 202001071751 // handled auto scaling
-// 202001071915 // fixed recapture ignoring safeword
+// 202008120350 // implamented timer release function
 
 
-#include <oups.lsl> // debugging
+#include <CAT Oups.lsl> // debugging
 string GS_Script_Name = "CAT Pod ACS"; // debugging
 
 
@@ -168,7 +168,6 @@ clear() {
 }
 
 
-
 // parse ACS the 360 channel ACS commands
 parsACSBasic( string msg ) {
     if( llGetSubString( msg, 0, 3 ) == "ACS," ) {
@@ -228,9 +227,6 @@ parsACSAdv( string msg ) {
 
 
 
-
-
-
 /*
 *   START OF STATES
 *   Because it is easier than regularly adjusting spacing
@@ -252,7 +248,6 @@ default {
             parsACSBasic( msg );
         } else if( chan == GI_Chan ) {
             parsACSAdv( msg );
-            
         }
     }
     
